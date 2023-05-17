@@ -400,6 +400,31 @@ func (_m *StateMock) UpdateGeneratedProof(ctx context.Context, proof *state.Proo
 
 	return r0
 }
+func (_m *StateMock) IsGenerateProofHash(ctx context.Context, sender string, batchNumber uint64, dbTx pgx.Tx) (bool, error){
+
+	return true,nil
+}
+
+
+func (p *StateMock) AddFinalProof(ctx context.Context, finalProof *state.FinalProof, dbTx pgx.Tx) error {
+	return nil
+}
+
+func (p *StateMock) GetFinalProofByMonitoredId(ctx context.Context, monitoredId string, dbTx pgx.Tx) (*state.FinalProof, error) {
+	return nil,nil
+}
+
+func (p *StateMock) GetSequence(ctx context.Context, lastVerifiedBatchNumber uint64, dbTx pgx.Tx) (state.Sequence, error) {
+	return state.Sequence{},nil
+}
+
+func (p *StateMock) GetTxBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, string, error)  {
+	return 0, "",nil
+}
+
+func (p *StateMock) HaveProverProofByBatchNum(ctx context.Context, batchNumberFinal uint64, dbTx pgx.Tx) (bool, error) {
+	return true, nil
+}
 
 type mockConstructorTestingTNewStateMock interface {
 	mock.TestingT

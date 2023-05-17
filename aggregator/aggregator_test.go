@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,14 +16,19 @@ import (
 	"github.com/0xPolygonHermez/zkevm-node/aggregator/mocks"
 	"github.com/0xPolygonHermez/zkevm-node/aggregator/pb"
 	configTypes "github.com/0xPolygonHermez/zkevm-node/config/types"
+	"github.com/0xPolygonHermez/zkevm-node/encoding"
 	ethmanTypes "github.com/0xPolygonHermez/zkevm-node/etherman/types"
 	"github.com/0xPolygonHermez/zkevm-node/ethtxmanager"
 	"github.com/0xPolygonHermez/zkevm-node/state"
 	"github.com/0xPolygonHermez/zkevm-node/test/testutils"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	solsha3 "github.com/miguelmota/go-solidity-sha3"
 )
 
 type mox struct {
@@ -27,6 +36,49 @@ type mox struct {
 	ethTxManager *mocks.EthTxManager
 	etherman     *mocks.Etherman
 	proverMock   *mocks.ProverMock
+}
+
+type IntHeap []int
+
+func (h IntHeap) Len() int           { return len(h) }
+func (h IntHeap) Less(i, j int) bool { return h[i] < h[j] }
+func (h IntHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func TestSort(t *testing.T) {
+
+	h := IntHeap{2, 1, 5, 100, 3, 6, 4, 5}
+	sort.Sort(h)
+	fmt.Println(h)
+	t.Fatal(1)
+}
+
+func TestId(t *testing.T) {
+	// monitoredIDFormat: "proof-from-%v-to-%v" "proof-hash-from-%v-to-%v"
+	ID := "proof-hash-from-211-to-211"
+	idSlice := strings.Split(ID, "-")
+	proofBatchNumberStr := idSlice[2]
+	if len(idSlice) == 6 {
+		proofBatchNumberStr = idSlice[3]
+	}
+
+	proofBatchNumber, err := strconv.ParseUint(proofBatchNumberStr, encoding.Base10, 0)
+	if err != nil {
+		fmt.Println(proofBatchNumber)
+	}
+
+	proofBatchNumberFinalStr := idSlice[4]
+	if len(idSlice) == 6 {
+		proofBatchNumberFinalStr = idSlice[5]
+	}
+
+	proofBatchNumberFinal, err := strconv.ParseUint(proofBatchNumberFinalStr, encoding.Base10, 0)
+	if err != nil {
+		fmt.Println(proofBatchNumberFinal)
+	}
+
+	fmt.Println(idSlice)
+	fmt.Println(proofBatchNumber, proofBatchNumberFinal)
+	t.Fatal(1)
 }
 
 func TestSendFinalProof(t *testing.T) {

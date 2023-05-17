@@ -360,6 +360,11 @@ func (s *ClientSynchronizer) processBlockRange(blocks []etherman.Block, order ma
 				if err != nil {
 					return err
 				}
+			case etherman.UnTrustedVerifyBatchOrder:
+				err = s.processUnTrustedVerifyBatches(blocks[i].VerifiedBatches[element.Pos], dbTx)
+				if err != nil {
+					return err
+				}
 			case etherman.TrustedVerifyBatchOrder:
 				err = s.processTrustedVerifyBatches(blocks[i].VerifiedBatches[element.Pos], dbTx)
 				if err != nil {
@@ -1057,6 +1062,70 @@ func (s *ClientSynchronizer) processTrustedVerifyBatches(lastVerifiedBatch ether
 			StateRoot:   lastVerifiedBatch.StateRoot,
 			TxHash:      lastVerifiedBatch.TxHash,
 			IsTrusted:   true,
+		}
+		err = s.state.AddVerifiedBatch(s.ctx, &verifiedB, dbTx)
+		if err != nil {
+			log.Errorf("error storing the verifiedB in processTrustedVerifyBatches. verifiedBatch: %+v, lastVerifiedBatch: %+v", verifiedB, lastVerifiedBatch)
+			rollbackErr := dbTx.Rollback(s.ctx)
+			if rollbackErr != nil {
+				log.Errorf("error rolling back state. BlockNumber: %d, rollbackErr: %s, error : %v", lastVerifiedBatch.BlockNumber, rollbackErr.Error(), err)
+				return rollbackErr
+			}
+			log.Errorf("error storing the verifiedB in processTrustedVerifyBatches. BlockNumber: %d, error: %v", lastVerifiedBatch.BlockNumber, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *ClientSynchronizer) processUnTrustedVerifyBatches(lastVerifiedBatch etherman.VerifiedBatch, dbTx pgx.Tx) error {
+	lastVBatch, err := s.state.GetLastVerifiedBatch(s.ctx, dbTx)
+	if err != nil {
+		log.Errorf("error getting lastVerifiedBatch stored in db in processTrustedVerifyBatches. Processing synced blockNumber: %d", lastVerifiedBatch.BlockNumber)
+		rollbackErr := dbTx.Rollback(s.ctx)
+		if rollbackErr != nil {
+			log.Errorf("error rolling back state. Processing synced blockNumber: %d, rollbackErr: %s, error : %v", lastVerifiedBatch.BlockNumber, rollbackErr.Error(), err)
+			return rollbackErr
+		}
+		log.Errorf("error getting lastVerifiedBatch stored in db in processTrustedVerifyBatches. Processing synced blockNumber: %d, error: %v", lastVerifiedBatch.BlockNumber, err)
+		return err
+	}
+	nbatches := lastVerifiedBatch.BatchNumber - lastVBatch.BatchNumber
+	batch, err := s.state.GetBatchByNumber(s.ctx, lastVerifiedBatch.BatchNumber, dbTx)
+	if err != nil {
+		log.Errorf("error getting GetBatchByNumber stored in db in processTrustedVerifyBatches. Processing blockNumber: %d", lastVerifiedBatch.BatchNumber)
+		rollbackErr := dbTx.Rollback(s.ctx)
+		if rollbackErr != nil {
+			log.Errorf("error rolling back state. Processing blockNumber: %d, rollbackErr: %s, error : %v", lastVerifiedBatch.BatchNumber, rollbackErr.Error(), err)
+			return rollbackErr
+		}
+		log.Errorf("error getting GetBatchByNumber stored in db in processTrustedVerifyBatches. Processing blockNumber: %d, error: %v", lastVerifiedBatch.BatchNumber, err)
+		return err
+	}
+
+	// Checks that calculated state root matches with the verified state root in the smc
+	if batch.StateRoot != lastVerifiedBatch.StateRoot {
+		log.Warn("nbatches: ", nbatches)
+		log.Warnf("Batch from db: %+v", batch)
+		log.Warnf("Verified Batch: %+v", lastVerifiedBatch)
+		log.Errorf("error: stateRoot calculated and state root verified don't match in processTrustedVerifyBatches. Processing blockNumber: %d", lastVerifiedBatch.BatchNumber)
+		rollbackErr := dbTx.Rollback(s.ctx)
+		if rollbackErr != nil {
+			log.Errorf("error rolling back state. Processing blockNumber: %d, rollbackErr: %v", lastVerifiedBatch.BatchNumber, rollbackErr)
+			return rollbackErr
+		}
+		log.Errorf("error: stateRoot calculated and state root verified don't match in processTrustedVerifyBatches. Processing blockNumber: %d", lastVerifiedBatch.BatchNumber)
+		return fmt.Errorf("error: stateRoot calculated and state root verified don't match in processTrustedVerifyBatches. Processing blockNumber: %d", lastVerifiedBatch.BatchNumber)
+	}
+	var i uint64
+	for i = 1; i <= nbatches; i++ {
+		verifiedB := state.VerifiedBatch{
+			BlockNumber: lastVerifiedBatch.BlockNumber,
+			BatchNumber: lastVBatch.BatchNumber + i,
+			Aggregator:  lastVerifiedBatch.Aggregator,
+			StateRoot:   lastVerifiedBatch.StateRoot,
+			TxHash:      lastVerifiedBatch.TxHash,
+			IsTrusted:   false,
 		}
 		err = s.state.AddVerifiedBatch(s.ctx, &verifiedB, dbTx)
 		if err != nil {

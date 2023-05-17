@@ -4,7 +4,7 @@ DROP SCHEMA IF EXISTS state CASCADE;
 -- +migrate Up
 CREATE SCHEMA state;
 
-CREATE TABLE state.block
+CREATE TABLE state.bloeck
 ( --L1 block
     block_num   BIGINT PRIMARY KEY,
     block_hash  VARCHAR                  NOT NULL,
@@ -133,7 +133,7 @@ CREATE TABLE state.proof
     PRIMARY KEY (batch_num, batch_num_final)    
 );
 
-CREATE TABLE IF NOT EXISTS state.sequences
+CREATE TABLE IF NOT EXISTS s
 ( --Allowed Verifications
     from_batch_num BIGINT REFERENCES state.batch (batch_num) ON DELETE CASCADE,
     to_batch_num   BIGINT REFERENCES state.batch (batch_num) ON DELETE CASCADE

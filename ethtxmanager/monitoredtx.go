@@ -33,6 +33,8 @@ const (
 
 	// MonitoredTxStatusDone means the tx was set by the owner as done
 	MonitoredTxStatusDone = MonitoredTxStatus("done")
+
+	MonitoredTxStatusFailedDone = MonitoredTxStatus("failed_done")
 )
 
 // MonitoredTxStatus represents the status of a monitored tx

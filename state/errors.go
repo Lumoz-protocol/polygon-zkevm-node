@@ -15,7 +15,8 @@ var (
 	// ErrStateNotSynchronized indicates the state database may be empty
 	ErrStateNotSynchronized = errors.New("state not synchronized")
 	// ErrNotFound indicates an object has not been found for the search criteria used
-	ErrNotFound = errors.New("object not found")
+	ErrNotFound    = errors.New("object not found")
+	ProofNotCommit = errors.New("proof not commit")
 	// ErrNilDBTransaction indicates the db transaction has not been properly initialized
 	ErrNilDBTransaction = errors.New("database transaction not properly initialized")
 	// ErrAlreadyInitializedDBTransaction indicates the db transaction was already initialized

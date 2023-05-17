@@ -47,6 +47,11 @@
     },
     {
       "inputs": [],
+      "name": "CommittedProof",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "CommittedProofHash",
       "type": "error"
     },
@@ -131,6 +136,27 @@
       "type": "error"
     },
     {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "InvalidProofHash",
+      "type": "error"
+    },
+    {
       "inputs": [],
       "name": "InvalidRangeBatchTimeTarget",
       "type": "error"
@@ -183,6 +209,11 @@
     {
       "inputs": [],
       "name": "OnlyAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OnlyDeposit",
       "type": "error"
     },
     {
@@ -262,6 +293,11 @@
     },
     {
       "inputs": [],
+      "name": "SubmitProofTooLate",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "TransactionsLengthAboveMax",
       "type": "error"
     },
@@ -273,6 +309,11 @@
     {
       "inputs": [],
       "name": "TrustedAggregatorTimeoutNotExpired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAddress",
       "type": "error"
     },
     {
@@ -728,19 +769,6 @@
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "batchFee",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [
         {
           "internalType": "uint64",
@@ -767,7 +795,7 @@
           "type": "uint256"
         }
       ],
-      "name": "blockCommitBatchs",
+      "name": "blockCommitBatches",
       "outputs": [
         {
           "internalType": "bool",
@@ -824,16 +852,16 @@
       "type": "function"
     },
     {
-      "inputs": [
+      "inputs": [],
+      "name": "commitNum",
+      "outputs": [
         {
-          "internalType": "uint64",
-          "name": "pendingStateNum",
-          "type": "uint64"
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
         }
       ],
-      "name": "consolidatePendingState",
-      "outputs": [],
-      "stateMutability": "nonpayable",
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -841,6 +869,25 @@
       "name": "deactivateEmergencyState",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint64",
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "name": "finalNewBatches",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -901,19 +948,6 @@
           "internalType": "uint64",
           "name": "",
           "type": "uint64"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getForcedBatchFee",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -998,6 +1032,19 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "incorrectProofHashPunishAmount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "components": [
@@ -1059,6 +1106,19 @@
     },
     {
       "inputs": [],
+      "name": "isAllLiquidated",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "isEmergencyState",
       "outputs": [
         {
@@ -1073,25 +1133,6 @@
     {
       "inputs": [],
       "name": "isForcedBatchDisallowed",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint64",
-          "name": "pendingStateNum",
-          "type": "uint64"
-        }
-      ],
-      "name": "isPendingStateConsolidable",
       "outputs": [
         {
           "internalType": "bool",
@@ -1195,6 +1236,19 @@
     },
     {
       "inputs": [],
+      "name": "minDeposit",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "multiplierBatchFee",
       "outputs": [
         {
@@ -1220,46 +1274,16 @@
       "type": "function"
     },
     {
-      "inputs": [
+      "inputs": [],
+      "name": "noProofPunishAmount",
+      "outputs": [
         {
-          "internalType": "uint64",
-          "name": "initPendingStateNum",
-          "type": "uint64"
-        },
-        {
-          "internalType": "uint64",
-          "name": "finalPendingStateNum",
-          "type": "uint64"
-        },
-        {
-          "internalType": "uint64",
-          "name": "initNumBatch",
-          "type": "uint64"
-        },
-        {
-          "internalType": "uint64",
-          "name": "finalNewBatch",
-          "type": "uint64"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "newLocalExitRoot",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "newStateRoot",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes",
-          "name": "proof",
-          "type": "bytes"
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
-      "name": "overridePendingState",
-      "outputs": [],
-      "stateMutability": "nonpayable",
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -1358,49 +1382,6 @@
       "inputs": [
         {
           "internalType": "uint64",
-          "name": "initPendingStateNum",
-          "type": "uint64"
-        },
-        {
-          "internalType": "uint64",
-          "name": "finalPendingStateNum",
-          "type": "uint64"
-        },
-        {
-          "internalType": "uint64",
-          "name": "initNumBatch",
-          "type": "uint64"
-        },
-        {
-          "internalType": "uint64",
-          "name": "finalNewBatch",
-          "type": "uint64"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "newLocalExitRoot",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "newStateRoot",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes",
-          "name": "proof",
-          "type": "bytes"
-        }
-      ],
-      "name": "proveNonDeterministicPendingState",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint64",
           "name": "",
           "type": "uint64"
         },
@@ -1414,8 +1395,110 @@
       "outputs": [
         {
           "internalType": "bytes32",
+          "name": "proofHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "proof",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "proverLastLiquidated",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "proverLiquidation",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "prover",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "isSubmittedProofHash",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "submitHashBlockNumber",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "isSubmittedProof",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint256",
+          "name": "submitProofBlockNumber",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "isLiquidated",
+          "type": "bool"
+        },
+        {
+          "internalType": "uint64",
+          "name": "finalNewBatch",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
           "name": "",
           "type": "bytes32"
+        }
+      ],
+      "name": "proverPosition",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -1540,6 +1623,11 @@
           "internalType": "uint256",
           "name": "blockNumber",
           "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "proofSubmitted",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -1548,7 +1636,20 @@
     {
       "inputs": [
         {
-          "internalType": "address",
+          "internalType": "uint8",
+          "name": "newCommitNum",
+          "type": "uint8"
+        }
+      ],
+      "name": "setCommitNum",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract IDeposit",
           "name": "_ideDeposit",
           "type": "address"
         }
@@ -1574,6 +1675,32 @@
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "setIncorrectProofPunishAmount",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "setMinDeposit",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "uint16",
           "name": "newMultiplierBatchFee",
           "type": "uint16"
@@ -1587,12 +1714,12 @@
     {
       "inputs": [
         {
-          "internalType": "uint64",
-          "name": "newPendingStateTimeout",
-          "type": "uint64"
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
         }
       ],
-      "name": "setPendingStateTimeout",
+      "name": "setNoProofPunishAmount",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1600,38 +1727,12 @@
     {
       "inputs": [
         {
-          "internalType": "address",
+          "internalType": "contract ISlotAdapter",
           "name": "_slotAdapter",
           "type": "address"
         }
       ],
       "name": "setSlotAdapter",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "newTrustedAggregator",
-          "type": "address"
-        }
-      ],
-      "name": "setTrustedAggregator",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint64",
-          "name": "newTrustedAggregatorTimeout",
-          "type": "uint64"
-        }
-      ],
-      "name": "setTrustedAggregatorTimeout",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1671,6 +1772,19 @@
         }
       ],
       "name": "setVerifyBatchTimeTarget",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_account",
+          "type": "address"
+        }
+      ],
+      "name": "settle",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1739,19 +1853,6 @@
     },
     {
       "inputs": [],
-      "name": "trustedAggregator",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
       "name": "trustedAggregatorTimeout",
       "outputs": [
         {
@@ -1806,11 +1907,6 @@
       "inputs": [
         {
           "internalType": "uint64",
-          "name": "pendingStateNum",
-          "type": "uint64"
-        },
-        {
-          "internalType": "uint64",
           "name": "initNumBatch",
           "type": "uint64"
         },
@@ -1836,44 +1932,6 @@
         }
       ],
       "name": "verifyBatches",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint64",
-          "name": "pendingStateNum",
-          "type": "uint64"
-        },
-        {
-          "internalType": "uint64",
-          "name": "initNumBatch",
-          "type": "uint64"
-        },
-        {
-          "internalType": "uint64",
-          "name": "finalNewBatch",
-          "type": "uint64"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "newLocalExitRoot",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "newStateRoot",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes",
-          "name": "proof",
-          "type": "bytes"
-        }
-      ],
-      "name": "verifyBatchesTrustedAggregator",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"

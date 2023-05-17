@@ -96,6 +96,8 @@ const (
 	SequenceBatchesOrder EventOrder = "SequenceBatches"
 	// ForcedBatchesOrder identifies a ForcedBatches event
 	ForcedBatchesOrder EventOrder = "ForcedBatches"
+	// UnTrustedVerifyBatchOrder identifies a UnTrustedVerifyBatch event
+	UnTrustedVerifyBatchOrder EventOrder = "UnTrustedVerifyBatch"
 	// TrustedVerifyBatchOrder identifies a TrustedVerifyBatch event
 	TrustedVerifyBatchOrder EventOrder = "TrustedVerifyBatch"
 	// SequenceForceBatchesOrder identifies a SequenceForceBatches event
@@ -136,8 +138,9 @@ type Client struct {
 
 	GasProviders externalGasProviders
 
-	cfg  Config
-	auth map[common.Address]bind.TransactOpts // empty in case of read-only client
+	cfg     Config
+	auth    map[common.Address]bind.TransactOpts // empty in case of read-only client
+	timeout uint64
 }
 
 // NewClient creates a new etherman.
@@ -190,6 +193,11 @@ func NewClient(cfg Config) (*Client, error) {
 		gProviders = append(gProviders, ethgasstation.NewEthGasStationService())
 	}
 
+	_timeout, err := poe.PendingStateTimeout(&bind.CallOpts{Pending: false})
+	if err != nil {
+		return nil, err
+	}
+
 	return &Client{
 		EthClient:             ethClient,
 		PoE:                   poe,
@@ -201,8 +209,9 @@ func NewClient(cfg Config) (*Client, error) {
 			MultiGasProvider: cfg.MultiGasProvider,
 			Providers:        gProviders,
 		},
-		cfg:  cfg,
-		auth: map[common.Address]bind.TransactOpts{},
+		cfg:     cfg,
+		auth:    map[common.Address]bind.TransactOpts{},
+		timeout: _timeout,
 	}, nil
 }
 
@@ -330,8 +339,8 @@ func (etherMan *Client) processEvent(ctx context.Context, vLog types.Log, blocks
 	case submitProofHash:
 		return etherMan.submitProofHashEvent(ctx, vLog, blocks, blocksOrder)
 	case verifyBatchesSignatureHash:
-		log.Warn("VerifyBatches event not implemented yet")
-		return nil
+		//log.Warn("VerifyBatches event not implemented yet")
+		return etherMan.verifyBatchesEvent(ctx, vLog, blocks, blocksOrder)
 	case forceSequencedBatchesSignatureHash:
 		return etherMan.forceSequencedBatchesEvent(ctx, vLog, blocks, blocksOrder)
 	case setTrustedSequencerURLSignatureHash:
@@ -374,7 +383,8 @@ func (etherMan *Client) processEvent(ctx context.Context, vLog types.Log, blocks
 		return nil
 	case setPendingStateTimeoutSignatureHash:
 		log.Debug("SetPendingStateTimeout event detected")
-		return nil
+		return etherMan.updateTimeout(ctx, vLog, blocks, blocksOrder)
+		//return nil
 	case setMultiplierBatchFeeSignatureHash:
 		log.Debug("SetMultiplierBatchFee event detected")
 		return nil
@@ -436,6 +446,17 @@ func (etherMan *Client) updateZkevmVersion(ctx context.Context, vLog types.Log, 
 		Pos:  len((*blocks)[len(*blocks)-1].ForkIDs) - 1,
 	}
 	(*blocksOrder)[(*blocks)[len(*blocks)-1].BlockHash] = append((*blocksOrder)[(*blocks)[len(*blocks)-1].BlockHash], or)
+	return nil
+}
+
+func (etherMan *Client) updateTimeout(ctx context.Context, vLog types.Log, blocks *[]Block, blocksOrder *map[common.Hash][]Order) error {
+	log.Debug("UpdateTimeout event detected")
+	PendingStateTimeout, err := etherMan.PoE.ParseSetPendingStateTimeout(vLog)
+	if err != nil {
+		log.Error("error parsing SetPendingStateTimeout event. Error: ", err)
+		return err
+	}
+	etherMan.timeout = PendingStateTimeout.NewPendingStateTimeout
 	return nil
 }
 
@@ -593,6 +614,47 @@ func (etherMan *Client) BuildProofHashTxData(lastVerifiedBatch, newVerifiedBatch
 	return tx.To(), tx.Data(), nil
 }
 
+// BuildUnTrustedVerifyBatchesTxData builds a []bytes to be sent to the PoE SC method VerifyBatches.
+func (etherMan *Client) BuildUnTrustedVerifyBatchesTxData(lastVerifiedBatch, newVerifiedBatch uint64, inputs *ethmanTypes.FinalProofInputs) (to *common.Address, data []byte, err error) {
+	opts, err := etherMan.generateRandomAuth()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build trusted verify batches, err: %w", err)
+	}
+	opts.NoSend = true
+	// force nonce, gas limit and gas price to avoid querying it from the chain
+	opts.Nonce = big.NewInt(1)
+	opts.GasLimit = uint64(1)
+	opts.GasPrice = big.NewInt(1)
+
+	var newLocalExitRoot [32]byte
+	copy(newLocalExitRoot[:], inputs.NewLocalExitRoot)
+
+	var newStateRoot [32]byte
+	copy(newStateRoot[:], inputs.NewStateRoot)
+
+	proof, err := encoding.DecodeBytes(&inputs.FinalProof.Proof)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode proof, err: %w", err)
+	}
+
+	tx, err := etherMan.PoE.VerifyBatches(
+		&opts,
+		lastVerifiedBatch,
+		newVerifiedBatch,
+		newLocalExitRoot,
+		newStateRoot,
+		proof,
+	)
+	if err != nil {
+		if parsedErr, ok := tryParseError(err); ok {
+			err = parsedErr
+		}
+		return nil, nil, err
+	}
+
+	return tx.To(), tx.Data(), nil
+}
+
 // BuildTrustedVerifyBatchesTxData builds a []bytes to be sent to the PoE SC method TrustedVerifyBatches.
 func (etherMan *Client) BuildTrustedVerifyBatchesTxData(lastVerifiedBatch, newVerifiedBatch uint64, inputs *ethmanTypes.FinalProofInputs) (to *common.Address, data []byte, err error) {
 	opts, err := etherMan.generateRandomAuth()
@@ -618,9 +680,8 @@ func (etherMan *Client) BuildTrustedVerifyBatchesTxData(lastVerifiedBatch, newVe
 
 	const pendStateNum = 0 // TODO hardcoded for now until we implement the pending state feature
 
-	tx, err := etherMan.PoE.VerifyBatchesTrustedAggregator(
+	tx, err := etherMan.PoE.VerifyBatches(
 		&opts,
-		pendStateNum,
 		lastVerifiedBatch,
 		newVerifiedBatch,
 		newLocalExitRoot,
@@ -655,23 +716,9 @@ func (etherMan *Client) JudgeAggregatorDeposit(account common.Address) (bool, er
 	return true, nil
 }
 
-// GetSendSequenceFee get super/trusted sequencer fee
-func (etherMan *Client) GetSendSequenceFee(numBatches uint64) (*big.Int, error) {
-	f, err := etherMan.PoE.BatchFee(&bind.CallOpts{Pending: false})
-	if err != nil {
-		return nil, err
-	}
-	fee := new(big.Int).Mul(f, new(big.Int).SetUint64(numBatches))
-	return fee, nil
-}
-
 // TrustedSequencer gets trusted sequencer address
 func (etherMan *Client) TrustedSequencer() (common.Address, error) {
 	return etherMan.PoE.TrustedSequencer(&bind.CallOpts{Pending: false})
-}
-
-func (etherMan *Client) BlockCommitBatchs(blockNumber uint64) (bool, error) {
-	return etherMan.PoE.BlockCommitBatchs(&bind.CallOpts{Pending: false}, big.NewInt(0).SetUint64(blockNumber))
 }
 
 func (etherMan *Client) forcedBatchEvent(ctx context.Context, vLog types.Log, blocks *[]Block, blocksOrder *map[common.Hash][]Order) error {
@@ -832,6 +879,55 @@ func decodeSequences(txData []byte, lastBatchNumber uint64, sequencer common.Add
 	}
 
 	return sequencedBatches, nil
+}
+
+func (etherMan *Client) verifyBatchesEvent(ctx context.Context, vLog types.Log, blocks *[]Block, blocksOrder *map[common.Hash][]Order) error {
+	log.Debug("TrustedVerifyBatches event detected")
+	vb, err := etherMan.PoE.ParseVerifyBatches(vLog)
+	if err != nil {
+		return err
+	}
+	var trustedVerifyBatch VerifiedBatch
+	trustedVerifyBatch.BlockNumber = vLog.BlockNumber
+	trustedVerifyBatch.BatchNumber = vb.NumBatch
+	trustedVerifyBatch.TxHash = vLog.TxHash
+	trustedVerifyBatch.StateRoot = vb.StateRoot
+	trustedVerifyBatch.Aggregator = vb.Aggregator
+
+	if len(*blocks) == 0 || ((*blocks)[len(*blocks)-1].BlockHash != vLog.BlockHash || (*blocks)[len(*blocks)-1].BlockNumber != vLog.BlockNumber) {
+		fullBlock, err := etherMan.EthClient.BlockByHash(ctx, vLog.BlockHash)
+		if err != nil {
+			return fmt.Errorf("error getting hashParent. BlockNumber: %d. Error: %w", vLog.BlockNumber, err)
+		}
+		block := prepareBlock(vLog, time.Unix(int64(fullBlock.Time()), 0), fullBlock)
+		block.VerifiedBatches = append(block.VerifiedBatches, trustedVerifyBatch)
+		*blocks = append(*blocks, block)
+	} else if (*blocks)[len(*blocks)-1].BlockHash == vLog.BlockHash && (*blocks)[len(*blocks)-1].BlockNumber == vLog.BlockNumber {
+		(*blocks)[len(*blocks)-1].VerifiedBatches = append((*blocks)[len(*blocks)-1].VerifiedBatches, trustedVerifyBatch)
+	} else {
+		log.Error("Error processing trustedVerifyBatch event. BlockHash:", vLog.BlockHash, ". BlockNumber: ", vLog.BlockNumber)
+		return fmt.Errorf("error processing trustedVerifyBatch event")
+	}
+
+	timeout := etherMan.timeout
+
+	var or Order
+	if timeout != 0 {
+		or = Order{
+			Name: UnTrustedVerifyBatchOrder,
+			//Name: TrustedVerifyBatchOrder,
+			Pos: len((*blocks)[len(*blocks)-1].VerifiedBatches) - 1,
+		}
+	} else {
+		or = Order{
+			//Name: UnTrustedVerifyBatchOrder,
+			Name: TrustedVerifyBatchOrder,
+			Pos:  len((*blocks)[len(*blocks)-1].VerifiedBatches) - 1,
+		}
+	}
+
+	(*blocksOrder)[(*blocks)[len(*blocks)-1].BlockHash] = append((*blocksOrder)[(*blocks)[len(*blocks)-1].BlockHash], or)
+	return nil
 }
 
 func (etherMan *Client) verifyBatchesTrustedAggregatorEvent(ctx context.Context, vLog types.Log, blocks *[]Block, blocksOrder *map[common.Hash][]Order) error {
@@ -1072,6 +1168,12 @@ func (etherMan *Client) GetLatestBlockTimestamp(ctx context.Context) (uint64, er
 // GetLatestVerifiedBatchNum gets latest verified batch from ethereum
 func (etherMan *Client) GetLatestVerifiedBatchNum() (uint64, error) {
 	return etherMan.PoE.LastVerifiedBatch(&bind.CallOpts{Pending: false})
+}
+
+func (etherMan *Client) GetSequencedBatch(finalBatchNum uint64) (uint64, error) {
+	sequencedBatch, err := etherMan.PoE.SequencedBatches(&bind.CallOpts{Pending: false}, finalBatchNum)
+
+	return sequencedBatch.BlockNumber.Uint64(), err
 }
 
 // GetTx function get ethereum tx

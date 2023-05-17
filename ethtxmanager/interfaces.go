@@ -22,14 +22,18 @@ type ethermanInterface interface {
 	CheckTxWasMined(ctx context.Context, txHash common.Hash) (bool, *types.Receipt, error)
 	SignTx(ctx context.Context, sender common.Address, tx *types.Transaction) (*types.Transaction, error)
 	GetRevertMessage(ctx context.Context, tx *types.Transaction) (string, error)
+	GetLatestBlockNumber(ctx context.Context) (uint64, error)
 }
 
 type storageInterface interface {
 	Add(ctx context.Context, mTx monitoredTx, dbTx pgx.Tx) error
 	Get(ctx context.Context, owner, id string, dbTx pgx.Tx) (monitoredTx, error)
+	GetFinalTx(ctx context.Context, id string, dbTx pgx.Tx) (monitoredTx, error)
 	GetByStatus(ctx context.Context, owner *string, statuses []MonitoredTxStatus, dbTx pgx.Tx) ([]monitoredTx, error)
 	GetByBlock(ctx context.Context, fromBlock, toBlock *uint64, dbTx pgx.Tx) ([]monitoredTx, error)
 	Update(ctx context.Context, mTx monitoredTx, dbTx pgx.Tx) error
+	UpdateID(ctx context.Context, mTxSrcID, mTxDescID string, dbTx pgx.Tx) error
+	UpdateFailedID(ctx context.Context, mTxSrcID, mTxDescID string, dbTx pgx.Tx) error
 }
 
 type stateInterface interface {

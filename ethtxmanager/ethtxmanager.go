@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/0xPolygonHermez/zkevm-node/log"
-	"github.com/0xPolygonHermez/zkevm-node/state"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v4"
 )
@@ -76,7 +76,11 @@ func (c *Client) Add(ctx context.Context, owner, id string, from common.Address,
 	// get gas
 	gas, err := c.etherman.EstimateGas(ctx, from, to, value, data)
 	if err != nil {
-		err := fmt.Errorf("failed to estimate gas: %w, data: %v", err, common.Bytes2Hex(data))
+		latestBlockNumber, errBlockNumber := c.etherman.GetLatestBlockNumber(ctx)
+		if errBlockNumber != nil {
+			return fmt.Errorf("failed to estimate gas. err: %v", errBlockNumber)
+		}
+		err := fmt.Errorf("failed to estimate gas: %v, data: %v, latestBlockNumber: %d", err, common.Bytes2Hex(data), latestBlockNumber)
 		log.Error(err.Error())
 		if c.cfg.ForcedGas > 0 {
 			gas = c.cfg.ForcedGas
@@ -113,12 +117,41 @@ func (c *Client) Add(ctx context.Context, owner, id string, from common.Address,
 	// add to storage
 	err = c.storage.Add(ctx, mTx, dbTx)
 	if err != nil {
-		err := fmt.Errorf("failed to add tx to get monitored: %w", err)
+		err := fmt.Errorf("failed to add tx to get monitored: %v", err)
 		log.Errorf(err.Error())
 		return err
 	}
 
 	return nil
+}
+
+// Add a transaction to be sent and monitored
+func (c *Client) AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) (bool, error) {
+	tx, err := c.storage.GetFinalTx(ctx, id, dbTx)
+	if err != nil {
+		return false, err
+	}
+
+	dest := fmt.Sprintf("old-%d-%s", tx.createdAt.Unix(), id)
+	if err := c.storage.UpdateID(ctx, id, dest, dbTx); err != nil {
+		return false, err
+	}
+
+	return true, c.Add(ctx, tx.owner, tx.id, tx.from, tx.to, tx.value, tx.data, dbTx)
+}
+
+func (c *Client) UpdateId(ctx context.Context, id string, dbTx pgx.Tx) error {
+	tx, err := c.storage.GetFinalTx(ctx, id, dbTx)
+	if err != nil {
+		return err
+	}
+
+	dest := fmt.Sprintf("old-%d-%s", tx.createdAt.Unix(), id)
+	if tx.status == MonitoredTxStatusFailed {
+		return c.storage.UpdateFailedID(ctx, id, dest, dbTx)
+	}
+
+	return c.storage.UpdateID(ctx, id, dest, dbTx)
 }
 
 // ResultsByStatus returns all the results for all the monitored txs related to the owner and matching the provided statuses
@@ -275,12 +308,13 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 		hasFailedReceipts := false
 		allHistoryTxMined := true
 		for txHash := range mTx.history {
+			log.Info(mTx.id)
 			mined, receipt, err = c.etherman.CheckTxWasMined(ctx, txHash)
 			if err != nil {
 				mTxLog.Errorf("failed to check if tx %v was mined: %v", txHash.String(), err)
 				continue
 			}
-
+			log.Info(mTx.id, mined, receipt.Status)
 			// if the tx is not mined yet, check that not all the tx were mined and go to the next
 			if !mined {
 				allHistoryTxMined = false
@@ -309,12 +343,13 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 		// in case of all tx were mined and none of them were mined successfully, we need to
 		// review the nonce
 		if hasFailedReceipts && allHistoryTxMined {
-			mTxLog.Infof("nonce needs to be updated")
-			err := c.ReviewMonitoredTxNonce(ctx, &mTx)
-			if err != nil {
-				mTxLog.Errorf("failed to review monitored tx nonce: %v", err)
-				continue
-			}
+			// mTxLog.Infof("nonce needs to be updated")
+			// err := c.ReviewMonitoredTxNonce(ctx, &mTx)
+			// if err != nil {
+			// 	mTxLog.Errorf("failed to review monitored tx nonce: %v", err)
+			// 	continue
+			// }
+			mTx.status = MonitoredTxStatusFailed
 			err = c.storage.Update(ctx, mTx, nil)
 			if err != nil {
 				mTxLog.Errorf("failed to update monitored tx nonce change: %v", err)
@@ -395,6 +430,26 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 				err := c.etherman.SendTx(ctx, signedTx)
 				if err != nil {
 					mTxLog.Errorf("failed to send tx %v to network: %v", signedTx.Hash().String(), err)
+					if err.Error() == core.ErrNonceTooLow.Error() {
+						mTxLog.Infof("nonce needs to be updated")
+						err := c.ReviewMonitoredTxNonce(ctx, &mTx)
+						if err != nil {
+							mTxLog.Errorf("failed to review monitored tx nonce: %v", err)
+							continue
+						}
+						err = c.storage.Update(ctx, mTx, nil)
+						if err != nil {
+							mTxLog.Errorf("failed to update monitored tx nonce change: %v", err)
+							continue
+						}
+						// 	mTx.status = MonitoredTxStatusFailed
+						// 	err = c.storage.Update(ctx, mTx, nil)
+						// 	if err != nil {
+						// 		mTxLog.Errorf("failed to update monitored tx nonce change: %v", err)
+						// 		continue
+						// 	}
+					}
+
 					continue
 				}
 				mTxLog.Infof("signed tx sent to the network: %v", signedTx.Hash().String())
@@ -438,23 +493,25 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 
 		// if mined, check receipt and mark as Failed or Confirmed
 		if receipt.Status == types.ReceiptStatusSuccessful {
-			receiptBlockNum := receipt.BlockNumber.Uint64()
+			mTxLog.Info("confirmed")
+			mTx.status = MonitoredTxStatusConfirmed
+			// receiptBlockNum := receipt.BlockNumber.Uint64()
 
-			// check block synced
-			block, err := c.state.GetLastBlock(ctx, nil)
-			if errors.Is(err, state.ErrStateNotSynchronized) {
-				mTxLog.Debugf("state not synchronized yet, waiting for L1 block %v to be synced", receiptBlockNum)
-				continue
-			} else if err != nil {
-				mTxLog.Errorf("failed to check if L1 block %v is already synced: %v", receiptBlockNum, err)
-				continue
-			} else if block.BlockNumber < receiptBlockNum {
-				mTxLog.Debugf("L1 block %v not synchronized yet, waiting for L1 block to be synced in order to confirm monitored tx", receiptBlockNum)
-				continue
-			} else {
-				mTxLog.Info("confirmed")
-				mTx.status = MonitoredTxStatusConfirmed
-			}
+			// // check block synced
+			// block, err := c.state.GetLastBlock(ctx, nil)
+			// if errors.Is(err, state.ErrStateNotSynchronized) {
+			// 	mTxLog.Debugf("state not synchronized yet, waiting for L1 block %v to be synced", receiptBlockNum)
+			// 	continue
+			// } else if err != nil {
+			// 	mTxLog.Errorf("failed to check if L1 block %v is already synced: %v", receiptBlockNum, err)
+			// 	continue
+			// } else if block.BlockNumber < receiptBlockNum {
+			// 	mTxLog.Debugf("L1 block %v not synchronized yet, waiting for L1 block to be synced in order to confirm monitored tx", receiptBlockNum)
+			// 	continue
+			// } else {
+			// 	mTxLog.Info("confirmed")
+			// 	mTx.status = MonitoredTxStatusConfirmed
+			// }
 		} else {
 			// if we should continue to monitor, we move to the next one and this will
 			// be reviewed in the next monitoring cycle
