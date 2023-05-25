@@ -610,6 +610,7 @@ func (a *Aggregator) monitorSendProof(batchNumberFinal uint64) {
 				continue
 			}
 
+			log.Infof("proofHashBlockNum = %d, max_commit_proof = %d, blockNumber =%d", proofHashBlockNum, max_commit_proof, blockNumber)
 			if proofHashBlockNum+max_commit_proof > blockNumber {
 				continue
 			}
