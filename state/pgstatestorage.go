@@ -2010,7 +2010,7 @@ func (p *PostgresStorage) GetVirtualBatchToProve(ctx context.Context, lastVerfie
 			b.raw_txs_data,
 			b.forced_batch_num
 		FROM
-			state.batch b,
+			s b,
 			state.virtual_batch v
 		WHERE
 			b.batch_num > $1 AND b.batch_num = v.batch_num AND
@@ -2395,6 +2395,35 @@ func (p *PostgresStorage) GetBatchByForcedBatchNum(ctx context.Context, forcedBa
 	}
 
 	return &batch, nil
+}
+
+func (p *PostgresStorage) AddFinalProof(ctx context.Context, finalProof *FinalProof, dbTx pgx.Tx) error {
+	e := p.getExecQuerier(dbTx)
+	now := time.Now().UTC().Round(time.Microsecond)
+	const addProofHashSQL = "INSERT INTO state.final_proof (monitored_id, final_proof, final_proof_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)"
+	_, err := e.Exec(ctx, addProofHashSQL, finalProof.MonitoredId, finalProof.FinalProof, finalProof.FinalProofId, now, now)
+	return err
+}
+
+func (p *PostgresStorage) GetFinalProofByMonitoredId(ctx context.Context, monitoredId string, dbTx pgx.Tx) (*FinalProof, error) {
+	var finalProof, finalProofId string
+
+	const getFinalProofSQL = `SELECT final_proof,final_proof_id FROM state.final_proof WHERE monitored_id = $1`
+
+	e := p.getExecQuerier(dbTx)
+	err := e.QueryRow(ctx, getFinalProofSQL, monitoredId).Scan(&finalProof, &finalProofId)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	} else if err != nil {
+		return nil, err
+	}
+
+	return &FinalProof{
+		MonitoredId:  monitoredId,
+		FinalProof:   finalProof,
+		FinalProofId: finalProofId,
+	}, nil
 }
 
 func (p *PostgresStorage) AddProofHash(ctx context.Context, proofHash *ProofHash, dbTx pgx.Tx) error {

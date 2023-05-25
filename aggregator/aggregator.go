@@ -286,12 +286,6 @@ func (a *Aggregator) sendFinalProof() {
 			proof := msg.recursiveProof
 			log.WithFields("proofId", proof.ProofID, "batches", fmt.Sprintf("%d-%d", proof.BatchNumber, proof.BatchNumberFinal))
 
-			//a := solsha3.SoliditySHA3(proof)
-			//// address := common.HexToAddress("0xf191e3925788b24e54324997d3a016a2f067998b")
-			//ha := solsha3.Pack([]string{"string", "address"}, []interface{}{
-			//	a,
-			//	common.HexToAddress("0xf191e3925788b24e54324997d3a016a2f067998b")},
-			//)
 			sha3 := solsha3.SoliditySHA3(msg.finalProof.Proof)
 			pack := solsha3.Pack([]string{"string", "address"}, []interface{}{
 				sha3,
@@ -562,6 +556,19 @@ func (a *Aggregator) buildFinalProof(ctx context.Context, prover proverInterface
 		return nil, fmt.Errorf("failed to get final proof from prover: %w", err)
 	}
 
+	// 存储数据库
+	monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+
+	stateFinalProof := state.FinalProof{
+		MonitoredId:  monitoredTxID,
+		FinalProof:   finalProof.Proof,
+		FinalProofId: *finalProofID,
+	}
+
+	if err := a.State.AddFinalProof(a.ctx, &stateFinalProof, nil); err != nil {
+		log.Error("failed to add final proof. state-monitoredTxID: %s, err = %v", monitoredTxID, err)
+	}
+
 	log.Info("Final proof generated")
 
 	// mock prover sanity check
@@ -622,6 +629,8 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 		lastVerifiedBatchNum = lastVerifiedBatch.BatchNumber
 	}
 
+	var msg finalProofMsg
+
 	if proof == nil {
 		// we don't have a proof generating at the moment, check if we
 		// have a proof ready to verify
@@ -629,11 +638,40 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 		proof, err = a.getAndLockProofReadyToVerify(ctx, prover, lastVerifiedBatchNum)
 		if errors.Is(err, state.ErrNotFound) {
 			// nothing to verify, swallow the error
-			log.Debug("No proof ready to verify")
+			log.Debugf("No proof ready to verify. lastVerifiedBatchNum: %d")
 			return false, nil
 		}
 		if err != nil {
 			return false, err
+		}
+
+		msg = finalProofMsg{
+			proverName: proverName,
+			proverID:   proverID,
+		}
+
+		// 从数据表读取finalProof
+		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+		stateFinalProof, err := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
+		if err != nil && err != state.ErrNotFound {
+			return false, err
+		}
+
+		if err == state.ErrNotFound {
+			// at this point we have an eligible proof, build the final one using it
+			finalProof, err := a.buildFinalProof(ctx, prover, proof)
+			if err != nil {
+				err = fmt.Errorf("failed to build final proof, %w", err)
+				log.Error(FirstToUpper(err.Error()))
+				return false, err
+			}
+
+			msg.recursiveProof = proof
+			msg.finalProof = finalProof
+		} else {
+			proof.ProofID = &stateFinalProof.FinalProofId
+			msg.recursiveProof = proof
+			msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
 		}
 
 		defer func() {
@@ -647,35 +685,62 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 			}
 		}()
 	} else {
+		buildFinalProof := false
+		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+		stateFinalProof, err := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
+		if err != nil && err != state.ErrNotFound {
+			return false, err
+		}
+
+		if err == state.ErrNotFound {
+			buildFinalProof = true
+		}
+
 		// we do have a proof generating at the moment, check if it is
 		// eligible to be verified
-		eligible, err := a.validateEligibleFinalProof(ctx, proof, lastVerifiedBatchNum)
+		eligible, generate, err := a.validateEligibleFinalProof(ctx, proof, lastVerifiedBatchNum)
 		if err != nil {
 			return false, fmt.Errorf("failed to validate eligible final proof, %w", err)
 		}
+		// 根据finalProofID去拿finalProof，有的话就不计算
+
 		if !eligible {
+			if generate && buildFinalProof {
+				// at this point we have an eligible proof, build the final one using it
+				_, err := a.buildFinalProof(ctx, prover, proof)
+				if err != nil {
+					err = fmt.Errorf("failed to build final proof, %w", err)
+					log.Error(FirstToUpper(err.Error()))
+					return false, err
+				}
+			}
 			return false, nil
 		}
-	}
 
-	log = log.WithFields(
-		"proofId", *proof.ProofID,
-		"batches", fmt.Sprintf("%d-%d", proof.BatchNumber, proof.BatchNumberFinal),
-	)
+		log = log.WithFields(
+			"proofId", *proof.ProofID,
+			"batches", fmt.Sprintf("%d-%d", proof.BatchNumber, proof.BatchNumberFinal),
+		)
+		if buildFinalProof {
+			// at this point we have an eligible proof, build the final one using it
+			finalProof, err := a.buildFinalProof(ctx, prover, proof)
+			if err != nil {
+				err = fmt.Errorf("failed to build final proof, %w", err)
+				log.Error(FirstToUpper(err.Error()))
+				return false, err
+			}
 
-	// at this point we have an eligible proof, build the final one using it
-	finalProof, err := a.buildFinalProof(ctx, prover, proof)
-	if err != nil {
-		err = fmt.Errorf("failed to build final proof, %w", err)
-		log.Error(FirstToUpper(err.Error()))
-		return false, err
-	}
-
-	msg := finalProofMsg{
-		proverName:     proverName,
-		proverID:       proverID,
-		recursiveProof: proof,
-		finalProof:     finalProof,
+			msg = finalProofMsg{
+				proverName:     proverName,
+				proverID:       proverID,
+				recursiveProof: proof,
+				finalProof:     finalProof,
+			}
+		} else {
+			proof.ProofID = &stateFinalProof.FinalProofId
+			msg.recursiveProof = proof
+			msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
+		}
 	}
 
 	select {
@@ -688,7 +753,7 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 	return true, nil
 }
 
-func (a *Aggregator) validateEligibleFinalProof(ctx context.Context, proof *state.Proof, lastVerifiedBatchNum uint64) (bool, error) {
+func (a *Aggregator) validateEligibleFinalProof(ctx context.Context, proof *state.Proof, lastVerifiedBatchNum uint64) (bool, bool, error) {
 	batchNumberToVerify := lastVerifiedBatchNum + 1
 
 	if proof.BatchNumber != batchNumberToVerify {
@@ -700,24 +765,24 @@ func (a *Aggregator) validateEligibleFinalProof(ctx context.Context, proof *stat
 			log.Warnf("Proof %d-%d lower than next batch to verify %d. Deleting it", proof.BatchNumber, proof.BatchNumberFinal, batchNumberToVerify)
 			err := a.State.DeleteGeneratedProofs(ctx, proof.BatchNumber, proof.BatchNumberFinal, nil)
 			if err != nil {
-				return false, fmt.Errorf("failed to delete discarded proof, err: %w", err)
+				return false, false, fmt.Errorf("failed to delete discarded proof, err: %w", err)
 			}
-			return false, nil
+			return false, false, nil
 		} else {
 			log.Debugf("Proof batch number %d is not the following to last verfied batch number %d", proof.BatchNumber, lastVerifiedBatchNum)
-			return false, nil
+			return false, true, nil
 		}
 	}
 
 	bComplete, err := a.State.CheckProofContainsCompleteSequences(ctx, proof, nil)
 	if err != nil {
-		return false, fmt.Errorf("failed to check if proof contains complete sequences, %w", err)
+		return false, false, fmt.Errorf("failed to check if proof contains complete sequences, %w", err)
 	}
 	if !bComplete {
 		log.Infof("Recursive proof %d-%d not eligible to be verified: not containing complete sequences", proof.BatchNumber, proof.BatchNumberFinal)
-		return false, nil
+		return false, false, nil
 	}
-	return true, nil
+	return true, false, nil
 }
 
 func (a *Aggregator) getAndLockProofReadyToVerify(ctx context.Context, prover proverInterface, lastVerifiedBatchNum uint64) (*state.Proof, error) {

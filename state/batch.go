@@ -82,3 +82,12 @@ type ProverProof struct {
 	Proof         string
 	ProofHash     common.Hash
 }
+
+type FinalProof struct {
+	MonitoredId  string
+	FinalProof   string
+	FinalProofId string
+	CreatedAt    time.Time
+	// updatedAt last date time it was updated
+	UpdatedAt time.Time
+}

@@ -24,3 +24,13 @@ CREATE TABLE IF NOT EXISTS state.prover_proof
     proof           VARCHAR,
     proof_hash      VARCHAR NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS state.final_proof
+(
+    id            SERIAL PRIMARY KEY,
+    monitored_id  VARCHAR NOT NULL,
+    final_proof   VARCHAR NOT NULL,
+    final_proof_id VARCHAR NOT NULL,
+    created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at    TIMESTAMP WITH TIME ZONE NOT NULL,
+);

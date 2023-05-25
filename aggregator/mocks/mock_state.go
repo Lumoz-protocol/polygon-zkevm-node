@@ -401,6 +401,15 @@ func (_m *StateMock) UpdateGeneratedProof(ctx context.Context, proof *state.Proo
 	return r0
 }
 
+
+func (p *StateMock) AddFinalProof(ctx context.Context, finalProof *state.FinalProof, dbTx pgx.Tx) error {
+	return nil
+}
+
+func (p *StateMock) GetFinalProofByMonitoredId(ctx context.Context, monitoredId string, dbTx pgx.Tx) (*state.FinalProof, error) {
+	return nil,nil
+}
+
 type mockConstructorTestingTNewStateMock interface {
 	mock.TestingT
 	Cleanup(func())
