@@ -196,7 +196,7 @@ func (s *PostgresStorage) UpdateID(ctx context.Context, mTxSrcID, mTxDescID stri
 	conn := s.dbConn(dbTx)
 	cmd := `
         UPDATE state.monitored_txs
-           SET id = $2, , updated_at = $3
+           SET id = $2, updated_at = $3
          WHERE id = $1`
 
 	_, err := conn.Exec(ctx, cmd, mTxSrcID, mTxDescID, time.Now().UTC().Round(time.Microsecond))
