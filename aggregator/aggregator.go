@@ -582,7 +582,7 @@ func (a *Aggregator) sendFinalProof() {
 }
 
 func (a *Aggregator) monitorSendProof(batchNumberFinal uint64) {
-	tick := time.NewTicker(time.Second * 2)
+	tick := time.NewTicker(time.Second * 10)
 	for {
 		select {
 		case <-a.ctx.Done():
