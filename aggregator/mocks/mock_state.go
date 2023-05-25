@@ -410,6 +410,14 @@ func (p *StateMock) GetFinalProofByMonitoredId(ctx context.Context, monitoredId 
 	return nil,nil
 }
 
+func (p *StateMock) GetSequence(ctx context.Context, lastVerifiedBatchNumber uint64, dbTx pgx.Tx) (state.Sequence, error) {
+	return state.Sequence{},nil
+}
+
+func (p *StateMock) GetStatusDoneBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, error)  {
+	return 0, nil
+}
+
 type mockConstructorTestingTNewStateMock interface {
 	mock.TestingT
 	Cleanup(func())

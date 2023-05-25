@@ -33,6 +33,7 @@ type ethTxManager interface {
 	Result(ctx context.Context, owner, id string, dbTx pgx.Tx) (ethtxmanager.MonitoredTxResult, error)
 	ResultsByStatus(ctx context.Context, owner string, statuses []ethtxmanager.MonitoredTxStatus, dbTx pgx.Tx) ([]ethtxmanager.MonitoredTxResult, error)
 	ProcessPendingMonitoredTxs(ctx context.Context, owner string, failedResultHandler ethtxmanager.ResultHandler, dbTx pgx.Tx)
+	AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) error
 }
 
 // etherman contains the methods required to interact with ethereum
@@ -44,6 +45,7 @@ type etherman interface {
 	TrustedAggregator() (common.Address, error)
 	GetLatestBlockNumber(ctx context.Context) (uint64, error)
 	JudgeAggregatorDeposit(account common.Address) (bool, error)
+	GetSequencedBatch(finalBatchNum uint64) (uint64, error)
 }
 
 // aggregatorTxProfitabilityChecker interface for different profitability
@@ -74,4 +76,6 @@ type stateInterface interface {
 	AddProverProof(ctx context.Context, proverProof *state.ProverProof, dbTx pgx.Tx) error
 	AddFinalProof(ctx context.Context, finalProof *state.FinalProof, dbTx pgx.Tx) error
 	GetFinalProofByMonitoredId(ctx context.Context, monitoredId string, dbTx pgx.Tx) (*state.FinalProof, error)
+	GetSequence(ctx context.Context, lastVerifiedBatchNumber uint64, dbTx pgx.Tx) (state.Sequence, error)
+	GetStatusDoneBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, error)
 }

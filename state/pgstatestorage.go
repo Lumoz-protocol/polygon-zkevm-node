@@ -1995,6 +1995,21 @@ func (p *PostgresStorage) GetSequences(ctx context.Context, lastVerifiedBatchNum
 	return sequences, err
 }
 
+func (p *PostgresStorage) GetSequence(ctx context.Context, lastVerifiedBatchNumber uint64, dbTx pgx.Tx) (Sequence, error) {
+	q := p.getExecQuerier(dbTx)
+	var sequence Sequence
+	getSequenceSQL := "SELECT from_batch_num, to_batch_num FROM state.sequences WHERE from_batch_num >= $1 and to_batch_num <= $1 ORDER BY from_batch_num ASC limit 1"
+
+	err := q.QueryRow(ctx, getSequenceSQL, lastVerifiedBatchNumber).Scan(&sequence.FromBatchNumber, &sequence.ToBatchNumber)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sequence, ErrStateNotSynchronized
+	} else if err != nil {
+		return sequence, err
+	}
+
+	return sequence, err
+}
+
 // GetVirtualBatchToProve return the next batch that is not proved, neither in
 // proved process.
 func (p *PostgresStorage) GetVirtualBatchToProve(ctx context.Context, lastVerfiedBatchNumber uint64, dbTx pgx.Tx) (*Batch, error) {
@@ -2511,4 +2526,20 @@ func (p *PostgresStorage) GetSequenceLastCommitBlock(ctx context.Context, owner 
 	}
 
 	return id, blockNumber, nil
+}
+
+func (p *PostgresStorage) GetStatusDoneBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, error) {
+	conn := p.getExecQuerier(dbTx)
+	cmd := `SELECT block_num FROM state.monitored_txs WHERE id = $1 AND status = 'done'`
+
+	var blockNumber *uint64
+
+	err := conn.QueryRow(ctx, cmd, id).Scan(&blockNumber)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrNotFound
+	} else if err != nil {
+		return 0, err
+	}
+
+	return *blockNumber, nil
 }

@@ -174,6 +174,10 @@ func (_m *Etherman) GetLatestBlockNumber(ctx context.Context) (uint64, error) {
 	return 1, nil
 }
 
+func (_m *Etherman) GetSequencedBatch(finalBatchNum uint64) (uint64, error) {
+	return 0,nil
+}
+
 func (_m *Etherman)  JudgeAggregatorDeposit(account common.Address) (bool, error) {
 	return  true,nil
 }

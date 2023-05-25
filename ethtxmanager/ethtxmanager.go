@@ -121,6 +121,21 @@ func (c *Client) Add(ctx context.Context, owner, id string, from common.Address,
 	return nil
 }
 
+// Add a transaction to be sent and monitored
+func (c *Client) AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) error {
+	tx, err := c.storage.GetStatusDone(ctx, id, dbTx)
+	if err != nil {
+		return err
+	}
+
+	dest := fmt.Sprintf("old-%s", id)
+	if err := c.storage.UpdateID(ctx, id, dest, dbTx); err != nil {
+		return err
+	}
+
+	return c.Add(ctx, tx.owner, tx.id, tx.from, tx.to, tx.value, tx.data, dbTx)
+}
+
 // ResultsByStatus returns all the results for all the monitored txs related to the owner and matching the provided statuses
 // if the statuses are empty, all the statuses are considered.
 //

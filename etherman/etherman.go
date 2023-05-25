@@ -1189,6 +1189,12 @@ func (etherMan *Client) GetLatestVerifiedBatchNum() (uint64, error) {
 	return etherMan.PoE.LastVerifiedBatch(&bind.CallOpts{Pending: false})
 }
 
+func (etherMan *Client) GetSequencedBatch(finalBatchNum uint64) (uint64, error) {
+	sequencedBatch, err := etherMan.PoE.SequencedBatches(&bind.CallOpts{Pending: false}, finalBatchNum)
+
+	return sequencedBatch.BlockNumber.Uint64(), err
+}
+
 // GetTx function get ethereum tx
 func (etherMan *Client) GetTx(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error) {
 	return etherMan.EthClient.TransactionByHash(ctx, txHash)

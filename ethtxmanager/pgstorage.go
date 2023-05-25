@@ -79,6 +79,26 @@ func (s *PostgresStorage) Get(ctx context.Context, owner, id string, dbTx pgx.Tx
 	return mTx, nil
 }
 
+func (s *PostgresStorage) GetStatusDone(ctx context.Context, id string, dbTx pgx.Tx) (monitoredTx, error) {
+	conn := s.dbConn(dbTx)
+	cmd := `
+        SELECT owner, id, from_addr, to_addr, nonce, value, data, gas, gas_price, status, block_num, history, created_at, updated_at
+          FROM state.monitored_txs
+         WHERE id = $1 AND status = 'done'`
+
+	mTx := monitoredTx{}
+
+	row := conn.QueryRow(ctx, cmd, id)
+	err := s.scanMtx(row, &mTx)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return mTx, ErrNotFound
+	} else if err != nil {
+		return mTx, err
+	}
+
+	return mTx, nil
+}
+
 // GetByStatus loads all monitored tx that match the provided status
 func (s *PostgresStorage) GetByStatus(ctx context.Context, owner *string, statuses []MonitoredTxStatus, dbTx pgx.Tx) ([]monitoredTx, error) {
 	hasStatusToFilter := len(statuses) > 0
@@ -169,6 +189,23 @@ func (s *PostgresStorage) GetByBlock(ctx context.Context, fromBlock, toBlock *ui
 	}
 
 	return mTxs, nil
+}
+
+// Update a persisted monitored id
+func (s *PostgresStorage) UpdateID(ctx context.Context, mTxSrcID, mTxDescID string, dbTx pgx.Tx) error {
+	conn := s.dbConn(dbTx)
+	cmd := `
+        UPDATE state.monitored_txs
+           SET id = $2, , updated_at = $3
+         WHERE id = $1`
+
+	_, err := conn.Exec(ctx, cmd, mTxSrcID, mTxDescID, time.Now().UTC().Round(time.Microsecond))
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Update a persisted monitored tx

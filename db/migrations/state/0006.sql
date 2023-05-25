@@ -34,3 +34,4 @@ CREATE TABLE IF NOT EXISTS state.final_proof
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at    TIMESTAMP WITH TIME ZONE NOT NULL
 );
+
