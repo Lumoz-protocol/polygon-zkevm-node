@@ -181,11 +181,13 @@ func (a *Aggregator) resendProoHash() {
 			return
 		case <-tick.C:
 			curBlockNumber, err := a.Ethman.GetLatestBlockNumber(a.ctx)
+			log.Infof("curBlockNumber : %d", curBlockNumber)
 			if err != nil {
 				log.Errorf("Failed get last block by jsonrpc: %v", err)
 				continue
 			}
 			lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
+			log.Infof("lastVerifiedEthBatchNum : %d", lastVerifiedEthBatchNum)
 			if err != nil {
 				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
 				continue
@@ -197,17 +199,23 @@ func (a *Aggregator) resendProoHash() {
 				continue
 			}
 
+			log.Infof("sequence : %v", sequence)
+
 			monitoredTxID := buildMonitoredTxID(sequence.FromBatchNumber, sequence.ToBatchNumber)
 			proofTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
 			if err != nil {
 				log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredTxID, err)
 			}
 
+			log.Infof("proofTxBlockNumber : %v", proofTxBlockNumber)
+
 			monitoredTxID = fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
 			proofHashTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
 			if err != nil {
 				log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredTxID, err)
 			}
+
+			log.Infof("proofHashTxBlockNumber : %v", proofHashTxBlockNumber)
 
 			if proofTxBlockNumber > proofHashTxBlockNumber {
 				continue
@@ -217,6 +225,7 @@ func (a *Aggregator) resendProoHash() {
 				log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
 				continue
 			}
+
 			dbTx, err := a.State.BeginStateTransaction(a.ctx)
 			if err != nil {
 				log.Errorf("failed to begin state transaction for resend. err: %v", err)
