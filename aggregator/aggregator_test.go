@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -27,6 +29,20 @@ type mox struct {
 	ethTxManager *mocks.EthTxManager
 	etherman     *mocks.Etherman
 	proverMock   *mocks.ProverMock
+}
+
+type IntHeap []int
+
+func (h IntHeap) Len() int           { return len(h) }
+func (h IntHeap) Less(i, j int) bool { return h[i] < h[j] }
+func (h IntHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func TestSort(t *testing.T) {
+
+	h := IntHeap{2, 1, 5, 100, 3, 6, 4, 5}
+	sort.Sort(h)
+	fmt.Println(h)
+	t.Fatal(1)
 }
 
 func TestSendFinalProof(t *testing.T) {
