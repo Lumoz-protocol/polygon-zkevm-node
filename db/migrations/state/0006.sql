@@ -32,5 +32,5 @@ CREATE TABLE IF NOT EXISTS state.final_proof
     final_proof   VARCHAR NOT NULL,
     final_proof_id VARCHAR NOT NULL,
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at    TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at    TIMESTAMP WITH TIME ZONE NOT NULL
 );

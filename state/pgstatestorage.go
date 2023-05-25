@@ -2010,7 +2010,7 @@ func (p *PostgresStorage) GetVirtualBatchToProve(ctx context.Context, lastVerfie
 			b.raw_txs_data,
 			b.forced_batch_num
 		FROM
-			s b,
+			state.batch b,
 			state.virtual_batch v
 		WHERE
 			b.batch_num > $1 AND b.batch_num = v.batch_num AND
