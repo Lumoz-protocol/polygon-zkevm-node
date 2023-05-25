@@ -221,7 +221,7 @@ func (a *Aggregator) resendProoHash() {
 		log.Infof("proofHashTxBlockNumber : %v", proofHashTxBlockNumber)
 
 		if (proofHashTxBlockNumber + 20) > curBlockNumber {
-			if (proofHashTxBlockNumber + 10) > curBlockNumber {
+			if (proofHashTxBlockNumber + 10) < curBlockNumber {
 				a.monitorSendProof(sequence.ToBatchNumber)
 			}
 			log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
