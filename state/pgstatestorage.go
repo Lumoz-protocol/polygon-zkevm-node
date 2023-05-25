@@ -1998,7 +1998,7 @@ func (p *PostgresStorage) GetSequences(ctx context.Context, lastVerifiedBatchNum
 func (p *PostgresStorage) GetSequence(ctx context.Context, lastVerifiedBatchNumber uint64, dbTx pgx.Tx) (Sequence, error) {
 	q := p.getExecQuerier(dbTx)
 	var sequence Sequence
-	getSequenceSQL := "SELECT from_batch_num, to_batch_num FROM state.sequences WHERE from_batch_num >= $1 and to_batch_num <= $1 ORDER BY from_batch_num ASC limit 1"
+	getSequenceSQL := "SELECT from_batch_num, to_batch_num FROM state.sequences WHERE from_batch_num >= $1 and to_batch_num >= $1 ORDER BY from_batch_num ASC limit 1"
 
 	err := q.QueryRow(ctx, getSequenceSQL, lastVerifiedBatchNumber).Scan(&sequence.FromBatchNumber, &sequence.ToBatchNumber)
 	if errors.Is(err, pgx.ErrNoRows) {
