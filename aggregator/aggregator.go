@@ -1467,15 +1467,22 @@ func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResu
 		return
 	}
 
-	// monitoredIDFormat: "proof-from-%v-to-%v"
+	// monitoredIDFormat: "proof-from-%v-to-%v" "proof-hash-from-%v-to-%v"
 	idSlice := strings.Split(result.ID, "-")
 	proofBatchNumberStr := idSlice[2]
+	if len(idSlice) == 6 {
+		proofBatchNumberStr = idSlice[3]
+	}
+
 	proofBatchNumber, err := strconv.ParseUint(proofBatchNumberStr, encoding.Base10, 0)
 	if err != nil {
 		resLog.Errorf("failed to read final proof batch number from monitored tx: %v", err)
 	}
 
 	proofBatchNumberFinalStr := idSlice[4]
+	if len(idSlice) == 6 {
+		proofBatchNumberFinalStr = idSlice[5]
+	}
 	proofBatchNumberFinal, err := strconv.ParseUint(proofBatchNumberFinalStr, encoding.Base10, 0)
 	if err != nil {
 		resLog.Errorf("failed to read final proof batch number final from monitored tx: %v", err)
