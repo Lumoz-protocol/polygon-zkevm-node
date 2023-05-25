@@ -290,7 +290,7 @@ func (h finalProofMsgList) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 // - wait for the synchronizer to catch up
 // - clean up the cache of recursive proofs
 func (a *Aggregator) sendFinalProof() {
-	var lock sync.Locker
+	var lock sync.Mutex
 	finalProofMsgs := make(finalProofMsgList, 0)
 	tick := time.NewTicker(time.Second * 1)
 	for {
