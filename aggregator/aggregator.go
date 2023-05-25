@@ -202,12 +202,16 @@ func (a *Aggregator) resendProoHash() {
 			log.Infof("sequence : %v", sequence)
 
 			monitoredTxID := buildMonitoredTxID(sequence.FromBatchNumber, sequence.ToBatchNumber)
-			proofTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
-			if err != nil {
+			_, err = a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
+			if err != nil && err != state.ErrNotFound {
 				log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredTxID, err)
 			}
 
-			log.Infof("proofTxBlockNumber : %v", proofTxBlockNumber)
+			if err == nil {
+				continue
+			}
+
+			// log.Infof("proofTxBlockNumber : %v", proofTxBlockNumber)
 
 			monitoredTxID = fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
 			proofHashTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
@@ -217,9 +221,9 @@ func (a *Aggregator) resendProoHash() {
 
 			log.Infof("proofHashTxBlockNumber : %v", proofHashTxBlockNumber)
 
-			if proofTxBlockNumber > proofHashTxBlockNumber {
-				continue
-			}
+			// if proofTxBlockNumber > proofHashTxBlockNumber {
+			// 	continue
+			// }
 
 			if (proofHashTxBlockNumber + 20) > curBlockNumber {
 				log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
