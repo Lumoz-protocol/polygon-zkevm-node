@@ -174,89 +174,83 @@ func (a *Aggregator) Start(ctx context.Context) error {
 }
 
 func (a *Aggregator) resendProoHash() {
-	tick := time.NewTicker(time.Second * 2)
 	for {
 		select {
 		case <-a.ctx.Done():
 			return
-		case <-tick.C:
-			curBlockNumber, err := a.Ethman.GetLatestBlockNumber(a.ctx)
-			log.Infof("curBlockNumber : %d", curBlockNumber)
-			if err != nil {
-				log.Errorf("Failed get last block by jsonrpc: %v", err)
-				continue
-			}
-			lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
-			log.Infof("lastVerifiedEthBatchNum : %d", lastVerifiedEthBatchNum)
-			if err != nil {
-				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
-				continue
-			}
-
-			sequence, err := a.State.GetSequence(a.ctx, lastVerifiedEthBatchNum+1, nil)
-			if err != nil {
-				log.Warnf("failed to get sequence. err: %v", err)
-				continue
-			}
-
-			log.Infof("sequence : %v", sequence)
-
-			monitoredTxID := buildMonitoredTxID(sequence.FromBatchNumber, sequence.ToBatchNumber)
-			_, err = a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
-			if err != nil && err != state.ErrNotFound {
-				log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredTxID, err)
-			}
-
-			if err == nil {
-				continue
-			}
-
-			// log.Infof("proofTxBlockNumber : %v", proofTxBlockNumber)
-
-			monitoredTxID = fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
-			proofHashTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
-			if err != nil {
-				log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredTxID, err)
-			}
-
-			log.Infof("proofHashTxBlockNumber : %v", proofHashTxBlockNumber)
-
-			// if proofTxBlockNumber > proofHashTxBlockNumber {
-			// 	continue
-			// }
-
-			if (proofHashTxBlockNumber + 20) > curBlockNumber {
-				log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
-				continue
-			}
-
-			dbTx, err := a.State.BeginStateTransaction(a.ctx)
-			if err != nil {
-				log.Errorf("failed to begin state transaction for resend. err: %v", err)
-				continue
-			}
-			if err := a.EthTxManager.AddReSendTx(a.ctx, monitoredTxID, dbTx); err != nil {
-
-				if err := dbTx.Rollback(a.ctx); err != nil {
-					err := fmt.Errorf("failed to rollback resend: %w", err)
-					log.Error(FirstToUpper(err.Error()))
-					continue
-				}
-				log.Errorf("failed to release resend: %w", err)
-
-				continue
-			}
-
-			err = dbTx.Commit(a.ctx)
-			if err != nil {
-				log.Errorf("failed to release state transaction for resend %w", err)
-
-				continue
-			}
-
-			a.monitorSendProof(sequence.ToBatchNumber)
-			log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
+		default:
 		}
+		time.Sleep(5 * time.Second)
+		curBlockNumber, err := a.Ethman.GetLatestBlockNumber(a.ctx)
+		log.Infof("curBlockNumber : %d", curBlockNumber)
+		if err != nil {
+			log.Errorf("Failed get last block by jsonrpc: %v", err)
+			continue
+		}
+		lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
+		log.Infof("lastVerifiedEthBatchNum : %d", lastVerifiedEthBatchNum)
+		if err != nil {
+			log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
+			continue
+		}
+
+		sequence, err := a.State.GetSequence(a.ctx, lastVerifiedEthBatchNum+1, nil)
+		if err != nil {
+			log.Warnf("failed to get sequence. err: %v", err)
+			continue
+		}
+
+		log.Infof("sequence : %v", sequence)
+
+		monitoredTxID := buildMonitoredTxID(sequence.FromBatchNumber, sequence.ToBatchNumber)
+		_, err = a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
+		if err != nil && err != state.ErrNotFound {
+			log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredTxID, err)
+		}
+
+		if err == nil {
+			continue
+		}
+
+		monitoredTxID = fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
+		proofHashTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
+		if err != nil {
+			log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredTxID, err)
+		}
+
+		log.Infof("proofHashTxBlockNumber : %v", proofHashTxBlockNumber)
+
+		if (proofHashTxBlockNumber + 20) > curBlockNumber {
+			log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
+			continue
+		}
+
+		dbTx, err := a.State.BeginStateTransaction(a.ctx)
+		if err != nil {
+			log.Errorf("failed to begin state transaction for resend. err: %v", err)
+			continue
+		}
+		if err := a.EthTxManager.AddReSendTx(a.ctx, monitoredTxID, dbTx); err != nil {
+
+			if err := dbTx.Rollback(a.ctx); err != nil {
+				err := fmt.Errorf("failed to rollback resend: %w", err)
+				log.Error(FirstToUpper(err.Error()))
+				continue
+			}
+			log.Errorf("failed to release resend: %w", err)
+
+			continue
+		}
+
+		err = dbTx.Commit(a.ctx)
+		if err != nil {
+			log.Errorf("failed to release state transaction for resend %w", err)
+
+			continue
+		}
+
+		a.monitorSendProof(sequence.ToBatchNumber)
+		log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
 	}
 }
 
