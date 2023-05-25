@@ -80,6 +80,9 @@ type Aggregator struct {
 	srv  *grpc.Server
 	ctx  context.Context
 	exit context.CancelFunc
+
+	buildFinalProofBatchNumMutex *sync.Mutex
+	buildFinalProofBatchNum      uint64
 }
 
 // New creates a new aggregator.
@@ -100,14 +103,15 @@ func New(
 	a := Aggregator{
 		cfg: cfg,
 
-		State:                       stateInterface,
-		EthTxManager:                ethTxManager,
-		Ethman:                      etherman,
-		ProfitabilityChecker:        profitabilityChecker,
-		StateDBMutex:                &sync.Mutex{},
-		TimeSendFinalProofMutex:     &sync.RWMutex{},
-		TimeSendFinalProofHashMutex: &sync.RWMutex{},
-		TimeCleanupLockedProofs:     cfg.CleanupLockedProofsInterval,
+		State:                        stateInterface,
+		EthTxManager:                 ethTxManager,
+		Ethman:                       etherman,
+		ProfitabilityChecker:         profitabilityChecker,
+		StateDBMutex:                 &sync.Mutex{},
+		TimeSendFinalProofMutex:      &sync.RWMutex{},
+		TimeSendFinalProofHashMutex:  &sync.RWMutex{},
+		buildFinalProofBatchNumMutex: &sync.Mutex{},
+		TimeCleanupLockedProofs:      cfg.CleanupLockedProofsInterval,
 
 		finalProof:  make(chan finalProofMsg),
 		proofHashCH: make(chan proofHash),
@@ -634,11 +638,20 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 	if proof == nil {
 		// we don't have a proof generating at the moment, check if we
 		// have a proof ready to verify
+		a.buildFinalProofBatchNumMutex.Lock()
+		if a.buildFinalProofBatchNum == 0 {
+			a.buildFinalProofBatchNum = lastVerifiedBatchNum
+		} else {
+			a.buildFinalProofBatchNum++
+		}
+		a.buildFinalProofBatchNumMutex.Unlock()
 
-		proof, err = a.getAndLockProofReadyToVerify(ctx, prover, lastVerifiedBatchNum)
+		log.Info("getAndLockProofReadyToVerify lastVerifiedBatchNum: %d, buildFinalProofBatchNum: %d", lastVerifiedBatchNum, a.buildFinalProofBatchNum)
+
+		proof, err = a.getAndLockProofReadyToVerify(ctx, prover, a.buildFinalProofBatchNum)
 		if errors.Is(err, state.ErrNotFound) {
 			// nothing to verify, swallow the error
-			log.Debugf("No proof ready to verify. lastVerifiedBatchNum: %d", lastVerifiedBatchNum)
+			log.Debugf("No proof ready to verify. lastVerifiedBatchNum: %d, buildFinalProofBatchNum: %d", lastVerifiedBatchNum, a.buildFinalProofBatchNum)
 			return false, nil
 		}
 		if err != nil {
