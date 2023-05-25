@@ -128,7 +128,7 @@ func (c *Client) AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) error 
 		return err
 	}
 
-	dest := fmt.Sprintf("old-%s", id)
+	dest := fmt.Sprintf("old-%d-%s", tx.blockNumber.Uint64(), id)
 	if err := c.storage.UpdateID(ctx, id, dest, dbTx); err != nil {
 		return err
 	}
