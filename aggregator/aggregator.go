@@ -601,6 +601,16 @@ func (a *Aggregator) monitorSendProof(batchNumberFinal uint64) {
 				continue
 			}
 
+			proofHashBlockNum, err := a.Ethman.GetSequencedBatch(batchNumberFinal)
+			if err != nil {
+				log.Errorf("failed to get block number for first proof hash")
+				continue
+			}
+
+			if proofHashBlockNum+max_commit_proof > blockNumber {
+				continue
+			}
+
 			hash, err := a.State.GetProofHashBySender(a.ctx, a.cfg.SenderAddress, batchNumberFinal, max_commit_proof, blockNumber, nil)
 			if err != nil {
 				if err == state.ProofNotCommit {
