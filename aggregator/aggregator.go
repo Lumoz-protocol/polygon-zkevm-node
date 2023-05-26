@@ -1343,6 +1343,12 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	log = log.WithFields("proofId", *proof.ProofID)
 
 	monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+	a.monitoredProofHashTxLock.Lock()
+	if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
+		log.Debugf("proof hash transaction already sent. monitoredTxID: %s", monitoredTxID)
+		return false, nil
+	}
+	a.monitoredProofHashTxLock.Unlock()
 
 	_, err = a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 	if err != nil && err != state.ErrNotFound {
