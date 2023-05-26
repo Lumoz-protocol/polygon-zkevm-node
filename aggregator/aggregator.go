@@ -796,10 +796,10 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 
 		proof, err = a.getAndLockProofReadyToVerify(ctx, prover, a.buildFinalProofBatchNum)
 		if err != nil {
+			log.Errorf("failed to get and lock proof ready to verify. err: %v,  buildFinalProofBatchNum: %d", err, a.buildFinalProofBatchNum)
 			return false, err
 		}
 
-		// 从数据表读取finalProof
 		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
 		a.monitoredProofHashTxLock.Lock()
 		if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
