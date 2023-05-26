@@ -277,49 +277,70 @@ func (a *Aggregator) resendProoHash() {
 				continue
 			}
 
-			dbTx, err := a.State.BeginStateTransaction(a.ctx)
-			if err != nil {
-				log.Errorf("failed to begin state transaction for resend. err: %v", err)
-				continue
-			}
+			/*
+				dbTx, err := a.State.BeginStateTransaction(a.ctx)
+				if err != nil {
+					log.Errorf("failed to begin state transaction for resend. err: %v", err)
+					continue
+				}
+			*/
 			a.monitoredProofHashTxLock.Lock()
 			if _, ok := a.monitoredProofHashTx[monitoredProofhashTxID]; !ok {
 				a.monitoredProofHashTx[monitoredProofhashTxID] = true
 			}
 			a.monitoredProofHashTxLock.Unlock()
-			resend, err := a.EthTxManager.AddReSendTx(a.ctx, monitoredProofhashTxID, dbTx)
-			if err != nil {
+			proof, err := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredProofhashTxID, nil)
+			if err == nil {
+				msg := finalProofMsg{}
 
-				if err := dbTx.Rollback(a.ctx); err != nil {
-					err := fmt.Errorf("failed to rollback resend: %v", err)
-					log.Error(FirstToUpper(err.Error()))
+				msg.recursiveProof = &state.Proof{
+					BatchNumber:      sequence.FromBatchNumber,
+					BatchNumberFinal: sequence.ToBatchNumber,
+					ProofID:          &proof.FinalProofId,
+				}
+				msg.finalProof = &pb.FinalProof{Proof: proof.FinalProof}
+				a.finalProof <- msg
+			}
+
+			if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
+				log.Errorf("failed to update id. %s, err: %v", monitoredProofhashTxID, err)
+			}
+
+			/*
+				resend, err := a.EthTxManager.AddReSendTx(a.ctx, monitoredProofhashTxID, dbTx)
+				if err != nil {
+
+					if err := dbTx.Rollback(a.ctx); err != nil {
+						err := fmt.Errorf("failed to rollback resend: %v", err)
+						log.Error(FirstToUpper(err.Error()))
+						continue
+					}
+					log.Errorf("failed to release resend: %v", err)
+
 					continue
 				}
-				log.Errorf("failed to release resend: %v", err)
 
-				continue
-			}
+				err = dbTx.Commit(a.ctx)
+				if err != nil {
+					log.Errorf("failed to release state transaction for resend %v", err)
 
-			err = dbTx.Commit(a.ctx)
-			if err != nil {
-				log.Errorf("failed to release state transaction for resend %v", err)
-
-				continue
-			}
-
-			a.EthTxManager.ProcessPendingMonitoredTxs(a.ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
-				if result.Status == ethtxmanager.MonitoredTxStatusFailed {
-					resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
-					resultLog.Error("failed to resend proof hash, TODO: review this fatal and define what to do in this case")
-					if err := a.EthTxManager.UpdateId(a.ctx, result.ID, nil); err != nil {
-						resultLog.Error(err)
-					}
+					continue
 				}
-			}, nil)
-			if resend {
-				a.monitorSendProof(sequence.ToBatchNumber, monitoredProofhashTxID)
-				log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
-			}
+
+				a.EthTxManager.ProcessPendingMonitoredTxs(a.ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
+					if result.Status == ethtxmanager.MonitoredTxStatusFailed {
+						resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
+						resultLog.Error("failed to resend proof hash, TODO: review this fatal and define what to do in this case")
+						if err := a.EthTxManager.UpdateId(a.ctx, result.ID, nil); err != nil {
+							resultLog.Error(err)
+						}
+					}
+				}, nil)
+				if resend {
+					a.monitorSendProof(sequence.ToBatchNumber, monitoredProofhashTxID)
+					log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
+				}
+			*/
 		}
 	}
 }
