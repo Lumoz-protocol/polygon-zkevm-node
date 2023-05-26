@@ -271,6 +271,13 @@ func (a *Aggregator) resendProoHash() {
 			continue
 		}
 
+		a.EthTxManager.ProcessPendingMonitoredTxs(a.ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
+			if result.Status == ethtxmanager.MonitoredTxStatusFailed {
+				resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
+				resultLog.Error("failed to resend proof hash, TODO: review this fatal and define what to do in this case")
+			}
+		}, nil)
+
 		a.monitorSendProof(sequence.ToBatchNumber, monitoredTxID)
 		log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
 	}
@@ -474,7 +481,6 @@ func (a *Aggregator) sendFinalProof() {
 							resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
 							resultLog.Error("failed to send proof hash, TODO: review this fatal and define what to do in this case")
 						}
-						return
 					}, nil)
 
 					if err := a.State.AddProverProof(a.ctx, &state.ProverProof{
