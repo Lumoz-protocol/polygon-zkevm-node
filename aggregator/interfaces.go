@@ -33,7 +33,7 @@ type ethTxManager interface {
 	Result(ctx context.Context, owner, id string, dbTx pgx.Tx) (ethtxmanager.MonitoredTxResult, error)
 	ResultsByStatus(ctx context.Context, owner string, statuses []ethtxmanager.MonitoredTxStatus, dbTx pgx.Tx) ([]ethtxmanager.MonitoredTxResult, error)
 	ProcessPendingMonitoredTxs(ctx context.Context, owner string, failedResultHandler ethtxmanager.ResultHandler, dbTx pgx.Tx)
-	AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) error
+	AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) (bool, error)
 	UpdateId(ctx context.Context, id string, dbTx pgx.Tx) error
 }
 

@@ -268,7 +268,8 @@ func (a *Aggregator) resendProoHash() {
 			a.monitoredProofHashTx[monitoredProofhashTxID] = true
 		}
 		a.monitoredProofHashTxLock.Unlock()
-		if err := a.EthTxManager.AddReSendTx(a.ctx, monitoredProofhashTxID, dbTx); err != nil {
+		resend, err := a.EthTxManager.AddReSendTx(a.ctx, monitoredProofhashTxID, dbTx)
+		if err != nil {
 
 			if err := dbTx.Rollback(a.ctx); err != nil {
 				err := fmt.Errorf("failed to rollback resend: %v", err)
@@ -296,9 +297,10 @@ func (a *Aggregator) resendProoHash() {
 				}
 			}
 		}, nil)
-
-		a.monitorSendProof(sequence.ToBatchNumber, monitoredProofhashTxID)
-		log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
+		if resend {
+			a.monitorSendProof(sequence.ToBatchNumber, monitoredProofhashTxID)
+			log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
+		}
 	}
 }
 

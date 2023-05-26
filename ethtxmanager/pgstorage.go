@@ -79,12 +79,12 @@ func (s *PostgresStorage) Get(ctx context.Context, owner, id string, dbTx pgx.Tx
 	return mTx, nil
 }
 
-func (s *PostgresStorage) GetStatusDone(ctx context.Context, id string, dbTx pgx.Tx) (monitoredTx, error) {
+func (s *PostgresStorage) GetFinalTx(ctx context.Context, id string, dbTx pgx.Tx) (monitoredTx, error) {
 	conn := s.dbConn(dbTx)
 	cmd := `
         SELECT owner, id, from_addr, to_addr, nonce, value, data, gas, gas_price, status, block_num, history, created_at, updated_at
           FROM state.monitored_txs
-         WHERE id = $1 AND status = 'done'`
+         WHERE id = $1 AND (status = 'done' or status = 'failed')`
 
 	mTx := monitoredTx{}
 

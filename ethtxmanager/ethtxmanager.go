@@ -123,27 +123,37 @@ func (c *Client) Add(ctx context.Context, owner, id string, from common.Address,
 }
 
 // Add a transaction to be sent and monitored
-func (c *Client) AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) error {
-	tx, err := c.storage.GetStatusDone(ctx, id, dbTx)
+func (c *Client) AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) (bool, error) {
+	tx, err := c.storage.GetFinalTx(ctx, id, dbTx)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	dest := fmt.Sprintf("old-%d-%s", tx.blockNumber.Uint64(), id)
+	if tx.status == MonitoredTxStatusFailed {
+		dest = fmt.Sprintf("failed-%d-%s", tx.blockNumber.Uint64(), id)
+	}
 	if err := c.storage.UpdateID(ctx, id, dest, dbTx); err != nil {
-		return err
+		return false, err
 	}
 
-	return c.Add(ctx, tx.owner, tx.id, tx.from, tx.to, tx.value, tx.data, dbTx)
+	if tx.status == MonitoredTxStatusCreated {
+		return false, nil
+	}
+
+	return true, c.Add(ctx, tx.owner, tx.id, tx.from, tx.to, tx.value, tx.data, dbTx)
 }
 
 func (c *Client) UpdateId(ctx context.Context, id string, dbTx pgx.Tx) error {
-	tx, err := c.storage.GetStatusDone(ctx, id, dbTx)
+	tx, err := c.storage.GetFinalTx(ctx, id, dbTx)
 	if err != nil {
 		return err
 	}
 
 	dest := fmt.Sprintf("old-%d-%s", tx.blockNumber.Uint64(), id)
+	if tx.status == MonitoredTxStatusFailed {
+		dest = fmt.Sprintf("failed-%d-%s", tx.blockNumber.Uint64(), id)
+	}
 	return c.storage.UpdateID(ctx, id, dest, dbTx)
 }
 
