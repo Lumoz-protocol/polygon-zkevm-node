@@ -788,7 +788,20 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 		if a.buildFinalProofBatchNum == 0 {
 			a.buildFinalProofBatchNum = lastVerifiedBatchNum
 		} else {
-			a.buildFinalProofBatchNum++
+			// bug
+			for {
+				a.buildFinalProofBatchNum++
+				sequence, err := a.State.GetSequence(a.ctx, a.buildFinalProofBatchNum+1, nil)
+				if err != nil {
+					log.Warnf("failed to get sequence. err: %v", err)
+					continue
+				}
+
+				if sequence.FromBatchNumber == a.buildFinalProofBatchNum {
+					break
+				}
+			}
+
 		}
 		a.buildFinalProofBatchNumMutex.Unlock()
 
