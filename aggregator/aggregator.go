@@ -221,6 +221,9 @@ func (a *Aggregator) resendProoHash() {
 			continue
 		} else if !have {
 			log.Debugf("wait generate proof. batchnum: %d", lastVerifiedEthBatchNum+1)
+			if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
+				log.Errorf("failed to update id. %s", monitoredProofhashTxID)
+			}
 			time.Sleep(5 * time.Minute)
 			continue
 		}
