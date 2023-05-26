@@ -945,7 +945,7 @@ func (a *Aggregator) validateEligibleFinalProof(ctx context.Context, proof *stat
 			return false, false, nil
 		} else {
 			log.Debugf("Proof batch number %d is not the following to last verfied batch number %d", proof.BatchNumber, lastVerifiedBatchNum)
-			return false, true, nil
+			return false, false, nil
 		}
 	}
 
