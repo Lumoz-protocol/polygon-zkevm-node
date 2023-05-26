@@ -227,6 +227,9 @@ func (a *Aggregator) resendProoHash() {
 				continue
 			} else if !have {
 				log.Debugf("wait generate proof. batchnum: %d", tmp)
+				if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
+					log.Errorf("failed to update id. %s, err: %v", monitoredProofhashTxID, err)
+				}
 				proof, err := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredProofhashTxID, nil)
 				if err == nil {
 					msg := finalProofMsg{}
@@ -238,10 +241,6 @@ func (a *Aggregator) resendProoHash() {
 					}
 					msg.finalProof = &pb.FinalProof{Proof: proof.FinalProof}
 					a.finalProof <- msg
-				}
-
-				if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
-					log.Errorf("failed to update id. %s, err: %v", monitoredProofhashTxID, err)
 				}
 				time.Sleep(5 * time.Minute)
 				continue
@@ -928,6 +927,7 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 			return false, nil
 		}
 		a.monitoredProofHashTxLock.Unlock()
+		log.Infof("GetFinalProofByMonitoredId: %s", monitoredTxID)
 		stateFinalProof, err := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 		if err != nil && err != state.ErrNotFound {
 			log.Errorf("failed to read finalProof from table. err: %v", err)
