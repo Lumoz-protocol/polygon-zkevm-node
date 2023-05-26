@@ -200,106 +200,113 @@ func (a *Aggregator) resendProoHash() {
 			log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
 			continue
 		}
-
-		sequence, err := a.State.GetSequence(a.ctx, lastVerifiedEthBatchNum+1, nil)
-		if err != nil {
-			log.Warnf("failed to get sequence. err: %v", err)
-			continue
-		}
-
-		log.Infof("sequence : %v", sequence)
-
-		monitoredProofTxID := buildMonitoredTxID(sequence.FromBatchNumber, sequence.ToBatchNumber)
-		monitoredProofhashTxID := fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
-
-		if have, err := a.State.HaveProverProofByBatchNum(a.ctx, lastVerifiedEthBatchNum+1, nil); err != nil {
-			log.Errorf("failed to query prover proof by batch num. lastVerifiedEthBatchNum = %d", lastVerifiedEthBatchNum)
-			if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
-				log.Errorf("failed to update id. %s, err: %v", monitoredProofhashTxID, err)
-			}
-			time.Sleep(30 * time.Second)
-			continue
-		} else if !have {
-			log.Debugf("wait generate proof. batchnum: %d", lastVerifiedEthBatchNum+1)
-			if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
-				log.Errorf("failed to update id. %s, err: %v", monitoredProofhashTxID, err)
-			}
-			time.Sleep(5 * time.Minute)
-			continue
-		}
-
-		_, err = a.State.GetStatusDoneBlockNum(a.ctx, monitoredProofTxID, nil)
-		if err != nil && err != state.ErrNotFound {
-			log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredProofTxID, err)
-		}
-
-		if err == nil {
-			continue
-		}
-
-		proofHashTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredProofhashTxID, nil)
-		if err != nil {
-			log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredProofhashTxID, err)
-		}
-
-		log.Infof("proofHashTxBlockNumber : %v, monitoredTxID: %s", proofHashTxBlockNumber, monitoredProofhashTxID)
-
-		if (proofHashTxBlockNumber + 20) > curBlockNumber {
-			if (proofHashTxBlockNumber + 10) < curBlockNumber {
-				a.monitoredProofHashTxLock.Lock()
-				if _, ok := a.monitoredProofHashTx[monitoredProofhashTxID]; !ok {
-					a.monitoredProofHashTx[monitoredProofhashTxID] = true
+		tmp := lastVerifiedEthBatchNum
+		for {
+			tmp++
+			sequence, err := a.State.GetSequence(a.ctx, tmp, nil)
+			if err != nil {
+				if errors.Is(err, state.ErrStateNotSynchronized) {
+					log.Debugf("no transaction. err; %v", err)
+					break
 				}
-				a.monitoredProofHashTxLock.Unlock()
-
-				a.monitorSendProof(sequence.ToBatchNumber, monitoredProofhashTxID)
-			}
-			log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
-			continue
-		}
-
-		dbTx, err := a.State.BeginStateTransaction(a.ctx)
-		if err != nil {
-			log.Errorf("failed to begin state transaction for resend. err: %v", err)
-			continue
-		}
-		a.monitoredProofHashTxLock.Lock()
-		if _, ok := a.monitoredProofHashTx[monitoredProofhashTxID]; !ok {
-			a.monitoredProofHashTx[monitoredProofhashTxID] = true
-		}
-		a.monitoredProofHashTxLock.Unlock()
-		resend, err := a.EthTxManager.AddReSendTx(a.ctx, monitoredProofhashTxID, dbTx)
-		if err != nil {
-
-			if err := dbTx.Rollback(a.ctx); err != nil {
-				err := fmt.Errorf("failed to rollback resend: %v", err)
-				log.Error(FirstToUpper(err.Error()))
+				log.Warnf("failed to get sequence. err: %v", err)
 				continue
 			}
-			log.Errorf("failed to release resend: %v", err)
 
-			continue
-		}
+			log.Infof("sequence : %v", sequence)
 
-		err = dbTx.Commit(a.ctx)
-		if err != nil {
-			log.Errorf("failed to release state transaction for resend %v", err)
+			monitoredProofTxID := buildMonitoredTxID(sequence.FromBatchNumber, sequence.ToBatchNumber)
+			monitoredProofhashTxID := fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
 
-			continue
-		}
-
-		a.EthTxManager.ProcessPendingMonitoredTxs(a.ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
-			if result.Status == ethtxmanager.MonitoredTxStatusFailed {
-				resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
-				resultLog.Error("failed to resend proof hash, TODO: review this fatal and define what to do in this case")
-				if err := a.EthTxManager.UpdateId(a.ctx, result.ID, nil); err != nil {
-					resultLog.Error(err)
+			if have, err := a.State.HaveProverProofByBatchNum(a.ctx, tmp, nil); err != nil {
+				log.Errorf("failed to query prover proof by batch num. BatchNum = %d", tmp)
+				if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
+					log.Errorf("failed to update id. %s, err: %v", monitoredProofhashTxID, err)
 				}
+				time.Sleep(30 * time.Second)
+				continue
+			} else if !have {
+				log.Debugf("wait generate proof. batchnum: %d", tmp)
+				if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
+					log.Errorf("failed to update id. %s, err: %v", monitoredProofhashTxID, err)
+				}
+				time.Sleep(5 * time.Minute)
+				continue
 			}
-		}, nil)
-		if resend {
-			a.monitorSendProof(sequence.ToBatchNumber, monitoredProofhashTxID)
-			log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
+
+			_, err = a.State.GetStatusDoneBlockNum(a.ctx, monitoredProofTxID, nil)
+			if err != nil && err != state.ErrNotFound {
+				log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredProofTxID, err)
+			}
+
+			if err == nil {
+				continue
+			}
+
+			proofHashTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredProofhashTxID, nil)
+			if err != nil {
+				log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredProofhashTxID, err)
+			}
+
+			log.Infof("proofHashTxBlockNumber : %v, monitoredTxID: %s", proofHashTxBlockNumber, monitoredProofhashTxID)
+
+			if (proofHashTxBlockNumber + 20) > curBlockNumber {
+				if (proofHashTxBlockNumber + 10) < curBlockNumber {
+					a.monitoredProofHashTxLock.Lock()
+					if _, ok := a.monitoredProofHashTx[monitoredProofhashTxID]; !ok {
+						a.monitoredProofHashTx[monitoredProofhashTxID] = true
+					}
+					a.monitoredProofHashTxLock.Unlock()
+
+					a.monitorSendProof(sequence.ToBatchNumber, monitoredProofhashTxID)
+				}
+				log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
+				continue
+			}
+
+			dbTx, err := a.State.BeginStateTransaction(a.ctx)
+			if err != nil {
+				log.Errorf("failed to begin state transaction for resend. err: %v", err)
+				continue
+			}
+			a.monitoredProofHashTxLock.Lock()
+			if _, ok := a.monitoredProofHashTx[monitoredProofhashTxID]; !ok {
+				a.monitoredProofHashTx[monitoredProofhashTxID] = true
+			}
+			a.monitoredProofHashTxLock.Unlock()
+			resend, err := a.EthTxManager.AddReSendTx(a.ctx, monitoredProofhashTxID, dbTx)
+			if err != nil {
+
+				if err := dbTx.Rollback(a.ctx); err != nil {
+					err := fmt.Errorf("failed to rollback resend: %v", err)
+					log.Error(FirstToUpper(err.Error()))
+					continue
+				}
+				log.Errorf("failed to release resend: %v", err)
+
+				continue
+			}
+
+			err = dbTx.Commit(a.ctx)
+			if err != nil {
+				log.Errorf("failed to release state transaction for resend %v", err)
+
+				continue
+			}
+
+			a.EthTxManager.ProcessPendingMonitoredTxs(a.ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
+				if result.Status == ethtxmanager.MonitoredTxStatusFailed {
+					resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
+					resultLog.Error("failed to resend proof hash, TODO: review this fatal and define what to do in this case")
+					if err := a.EthTxManager.UpdateId(a.ctx, result.ID, nil); err != nil {
+						resultLog.Error(err)
+					}
+				}
+			}, nil)
+			if resend {
+				a.monitorSendProof(sequence.ToBatchNumber, monitoredProofhashTxID)
+				log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
+			}
 		}
 	}
 }
