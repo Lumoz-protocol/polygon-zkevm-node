@@ -890,7 +890,6 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 		if err != nil {
 			return false, fmt.Errorf("failed to validate eligible final proof, %v", err)
 		}
-		// 根据finalProofID去拿finalProof，有的话就不计算
 
 		if !eligible {
 			if generate && buildFinalProof {
@@ -1364,13 +1363,13 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	log = log.WithFields("proofId", *proof.ProofID)
 
 	monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
-	_, err = a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
-	if err != nil && err != state.ErrNotFound {
+	_, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
+	if errFinalProof != nil && errFinalProof != state.ErrNotFound {
 		log.Errorf("failed to read finalProof from table. err: %v", err)
-		return false, err
+		return false, errFinalProof
 	}
 
-	if err == state.ErrNotFound {
+	if errFinalProof == state.ErrNotFound {
 		resGetProof, err := prover.WaitRecursiveProof(ctx, *proof.ProofID)
 		if err != nil {
 			err = fmt.Errorf("failed to get proof from prover, %v", err)
