@@ -410,8 +410,8 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 				mTxLog.Debugf("signed tx not found in the network")
 				err := c.etherman.SendTx(ctx, signedTx)
 				if err != nil {
-					mTxLog.Errorf("failed to send tx %v to network: %v", signedTx.Hash().String(), err)
-					if err == core.ErrNonceTooLow {
+					mTxLog.Errorf("failed to send tx %v to network: %v, %v", signedTx.Hash().String(), err, err.Error() == core.ErrNonceTooLow.Error())
+					if err.Error() == core.ErrNonceTooLow.Error() {
 						mTxLog.Infof("nonce needs to be updated")
 						err := c.ReviewMonitoredTxNonce(ctx, &mTx)
 						if err != nil {
