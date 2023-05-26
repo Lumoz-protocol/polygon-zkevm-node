@@ -460,7 +460,8 @@ func (a *Aggregator) sendFinalProof() {
 							continue
 						}
 
-						if (block.BlockNumber - proofHashBlockNum) > max_commit_proof {
+						if (block.BlockNumber-proofHashBlockNum) > max_commit_proof && (block.BlockNumber-proofHashBlockNum) <= 2*max_commit_proof {
+							log.Debugf("not cant sender proof hash. proofHashBlockNum: %d, current block number", proofHashBlockNum, block.BlockNumber)
 							continue
 						}
 					}
