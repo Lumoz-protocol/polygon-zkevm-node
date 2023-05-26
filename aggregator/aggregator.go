@@ -227,6 +227,15 @@ func (a *Aggregator) resendProoHash() {
 				continue
 			} else if !have {
 				log.Debugf("wait generate proof. batchnum: %d", tmp)
+				proof, err := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredProofhashTxID, nil)
+				if err == nil {
+					msg := finalProofMsg{}
+
+					msg.recursiveProof.ProofID = &proof.FinalProofId
+					msg.finalProof = &pb.FinalProof{Proof: proof.FinalProof}
+					a.finalProof <- msg
+				}
+
 				if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
 					log.Errorf("failed to update id. %s, err: %v", monitoredProofhashTxID, err)
 				}
