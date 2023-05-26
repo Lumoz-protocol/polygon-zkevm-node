@@ -222,7 +222,7 @@ func (a *Aggregator) resendProoHash() {
 		} else if !have {
 			log.Debugf("wait generate proof. batchnum: %d", lastVerifiedEthBatchNum+1)
 			if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
-				log.Errorf("failed to update id. %s", monitoredProofhashTxID)
+				log.Errorf("failed to update id. %s, err: %v", monitoredProofhashTxID, err)
 			}
 			time.Sleep(5 * time.Minute)
 			continue
@@ -795,7 +795,8 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 		log.Infof("getAndLockProofReadyToVerify lastVerifiedBatchNum: %d, buildFinalProofBatchNum: %d", lastVerifiedBatchNum, a.buildFinalProofBatchNum)
 
 		proof, err = a.getAndLockProofReadyToVerify(ctx, prover, a.buildFinalProofBatchNum)
-		if err != nil {
+
+		if err != nil && err != state.ErrNotFound {
 			log.Errorf("failed to get and lock proof ready to verify. err: %v,  buildFinalProofBatchNum: %d", err, a.buildFinalProofBatchNum)
 			return false, err
 		}
@@ -807,11 +808,6 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 			return false, nil
 		}
 		a.monitoredProofHashTxLock.Unlock()
-		if errors.Is(err, state.ErrNotFound) {
-			// nothing to verify, swallow the error
-			log.Debugf("No proof ready to verify. lastVerifiedBatchNum: %d, buildFinalProofBatchNum: %d", lastVerifiedBatchNum, a.buildFinalProofBatchNum)
-			return false, nil
-		}
 
 		stateFinalProof, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 		if errFinalProof != nil && errFinalProof != state.ErrNotFound {
@@ -825,6 +821,11 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 		}
 
 		if errFinalProof == state.ErrNotFound {
+			if errors.Is(err, state.ErrNotFound) {
+				// nothing to verify, swallow the error
+				log.Debugf("No proof ready to verify. lastVerifiedBatchNum: %d, buildFinalProofBatchNum: %d", lastVerifiedBatchNum, a.buildFinalProofBatchNum)
+				return false, nil
+			}
 			// at this point we have an eligible proof, build the final one using it
 			finalProof, err := a.buildFinalProof(ctx, prover, proof)
 			if err != nil {
