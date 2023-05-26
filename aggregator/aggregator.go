@@ -259,6 +259,7 @@ func (a *Aggregator) resendProoHash() {
 			proofHashTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredProofhashTxID, nil)
 			if err != nil {
 				log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredProofhashTxID, err)
+				continue
 			}
 
 			log.Infof("proofHashTxBlockNumber : %v, monitoredTxID: %s", proofHashTxBlockNumber, monitoredProofhashTxID)
@@ -899,6 +900,26 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 			}
 		}()
 	} else {
+		// we do have a proof generating at the moment, check if it is
+		// eligible to be verified
+		eligible, generate, err := a.validateEligibleFinalProof(ctx, proof, lastVerifiedBatchNum)
+		if err != nil {
+			return false, fmt.Errorf("failed to validate eligible final proof, %v", err)
+		}
+
+		if !eligible {
+			if generate {
+				// at this point we have an eligible proof, build the final one using it
+				_, err := a.buildFinalProof(ctx, prover, proof)
+				if err != nil {
+					err = fmt.Errorf("failed to build final proof, %v", err)
+					log.Error(FirstToUpper(err.Error()))
+					return false, err
+				}
+			}
+			return false, nil
+		}
+
 		buildFinalProof := false
 		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
 		a.monitoredProofHashTxLock.Lock()
@@ -915,26 +936,6 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 
 		if err == state.ErrNotFound {
 			buildFinalProof = true
-		}
-
-		// we do have a proof generating at the moment, check if it is
-		// eligible to be verified
-		eligible, generate, err := a.validateEligibleFinalProof(ctx, proof, lastVerifiedBatchNum)
-		if err != nil {
-			return false, fmt.Errorf("failed to validate eligible final proof, %v", err)
-		}
-
-		if !eligible {
-			if generate && buildFinalProof {
-				// at this point we have an eligible proof, build the final one using it
-				_, err := a.buildFinalProof(ctx, prover, proof)
-				if err != nil {
-					err = fmt.Errorf("failed to build final proof, %v", err)
-					log.Error(FirstToUpper(err.Error()))
-					return false, err
-				}
-			}
-			return false, nil
 		}
 
 		log = log.WithFields(
