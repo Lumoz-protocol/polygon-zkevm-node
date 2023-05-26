@@ -231,7 +231,7 @@ func (a *Aggregator) resendProoHash() {
 				if err == nil {
 					msg := finalProofMsg{}
 
-					msg.recursiveProof.ProofID = &proof.FinalProofId
+					msg.recursiveProof = &state.Proof{ProofID: &proof.FinalProofId}
 					msg.finalProof = &pb.FinalProof{Proof: proof.FinalProof}
 					a.finalProof <- msg
 				}
