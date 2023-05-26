@@ -229,7 +229,6 @@ func (a *Aggregator) resendProoHash() {
 
 		if (proofHashTxBlockNumber + 20) > curBlockNumber {
 			if (proofHashTxBlockNumber + 10) < curBlockNumber {
-
 				a.monitoredProofHashTxLock.Lock()
 				if _, ok := a.monitoredProofHashTx[monitoredTxID]; !ok {
 					a.monitoredProofHashTx[monitoredTxID] = true
@@ -643,7 +642,7 @@ func (a *Aggregator) monitorSendProof(batchNumberFinal uint64, monitoredTxID str
 				log.Debugf("Failed get proof hash in monitorSendProof: %v, batchNumberFinal: %d", err, batchNumberFinal)
 				continue
 			}
-
+			log.Infof("build proof tx. hash: %s, batchNumberFinal: %d, monitoredTxID = %s", hash, batchNumberFinal, monitoredTxID)
 			a.proofHashCH <- proofHash{hash, batchNumberFinal}
 			return
 		}
@@ -770,7 +769,7 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 		}
 		a.buildFinalProofBatchNumMutex.Unlock()
 
-		log.Info("getAndLockProofReadyToVerify lastVerifiedBatchNum: %d, buildFinalProofBatchNum: %d", lastVerifiedBatchNum, a.buildFinalProofBatchNum)
+		log.Infof("getAndLockProofReadyToVerify lastVerifiedBatchNum: %d, buildFinalProofBatchNum: %d", lastVerifiedBatchNum, a.buildFinalProofBatchNum)
 
 		proof, err = a.getAndLockProofReadyToVerify(ctx, prover, a.buildFinalProofBatchNum)
 		if errors.Is(err, state.ErrNotFound) {
