@@ -15,6 +15,7 @@ import (
 	"github.com/0xPolygonHermez/zkevm-node/state"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v4"
 )
@@ -410,6 +411,20 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 				err := c.etherman.SendTx(ctx, signedTx)
 				if err != nil {
 					mTxLog.Errorf("failed to send tx %v to network: %v", signedTx.Hash().String(), err)
+					if err == core.ErrNonceTooLow {
+						mTxLog.Infof("nonce needs to be updated")
+						err := c.ReviewMonitoredTxNonce(ctx, &mTx)
+						if err != nil {
+							mTxLog.Errorf("failed to review monitored tx nonce: %v", err)
+							continue
+						}
+						err = c.storage.Update(ctx, mTx, nil)
+						if err != nil {
+							mTxLog.Errorf("failed to update monitored tx nonce change: %v", err)
+							continue
+						}
+					}
+
 					continue
 				}
 				mTxLog.Infof("signed tx sent to the network: %v", signedTx.Hash().String())

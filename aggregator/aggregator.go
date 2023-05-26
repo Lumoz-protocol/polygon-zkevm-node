@@ -544,7 +544,7 @@ func (a *Aggregator) sendFinalProof() {
 			a.endProofVerification()
 
 			a.monitoredProofHashTxLock.Lock()
-			if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
+			if b, ok := a.monitoredProofHashTx[monitoredTxID]; ok && b {
 				delete(a.monitoredProofHashTx, monitoredTxID)
 			}
 			a.monitoredProofHashTxLock.Unlock()
