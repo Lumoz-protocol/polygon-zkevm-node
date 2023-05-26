@@ -89,9 +89,9 @@ func (_m *EthTxManager) ResultsByStatus(ctx context.Context, owner string, statu
 	return r0, r1
 }
 
-func (_m *EthTxManager) AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) error {
+func (_m *EthTxManager) AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) (bool,error) {
 
-	return nil
+	return true, nil
 }
 
 func (_m *EthTxManager) UpdateId(ctx context.Context, id string, dbTx pgx.Tx) error{
