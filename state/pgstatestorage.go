@@ -2550,14 +2550,14 @@ func (p *PostgresStorage) GetStatusDoneBlockNum(ctx context.Context, id string, 
 	conn := p.getExecQuerier(dbTx)
 	cmd := `SELECT block_num FROM state.monitored_txs WHERE id = $1 AND status = 'done'`
 
-	var blockNumber *uint64
+	var blockNumber uint64
 
-	err := conn.QueryRow(ctx, cmd, id).Scan(&blockNumber)
+	err := conn.QueryRow(ctx, cmd, id).Scan(blockNumber)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, ErrNotFound
 	} else if err != nil {
 		return 0, err
 	}
 
-	return *blockNumber, nil
+	return blockNumber, nil
 }
