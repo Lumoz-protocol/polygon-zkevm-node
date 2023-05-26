@@ -149,6 +149,8 @@ func (a *Aggregator) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize proofs cache %w", err)
 	}
 
+	go a.resendProoHash()
+
 	address := fmt.Sprintf("%s:%d", a.cfg.Host, a.cfg.Port)
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
@@ -173,7 +175,7 @@ func (a *Aggregator) Start(ctx context.Context) error {
 
 	go a.cleanupLockedProofs()
 	go a.sendFinalProof()
-	go a.resendProoHash()
+
 	<-ctx.Done()
 	return ctx.Err()
 }
@@ -1499,7 +1501,7 @@ func (hc *healthChecker) Watch(req *grpchealth.HealthCheckRequest, server grpche
 func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResult) {
 	resLog := log.WithFields("owner", ethTxManagerOwner, "txId", result.ID)
 	if result.Status == ethtxmanager.MonitoredTxStatusFailed {
-		resLog.Fatal("failed to send batch verification, TODO: review this fatal and define what to do in this case")
+		resLog.Error("failed to send batch verification, TODO: review this fatal and define what to do in this case")
 		return
 	}
 
