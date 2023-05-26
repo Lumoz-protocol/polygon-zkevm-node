@@ -1145,16 +1145,23 @@ func (a *Aggregator) tryAggregateProofs(ctx context.Context, prover proverInterf
 	log.Infof("Proof ID for aggregated proof: %v", *proof.ProofID)
 	log = log.WithFields("proofId", *proof.ProofID)
 
-	recursiveProof, err := prover.WaitRecursiveProof(ctx, *proof.ProofID)
-	if err != nil {
-		err = fmt.Errorf("failed to get aggregated proof from prover, %v", err)
-		log.Error(FirstToUpper(err.Error()))
+	monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+	_, err = a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
+	if err != nil && err != state.ErrNotFound {
+		log.Errorf("failed to read finalProof from table. err: %v", err)
 		return false, err
 	}
+	if err == state.ErrNotFound {
+		recursiveProof, err := prover.WaitRecursiveProof(ctx, *proof.ProofID)
+		if err != nil {
+			err = fmt.Errorf("failed to get aggregated proof from prover, %v", err)
+			log.Error(FirstToUpper(err.Error()))
+			return false, err
+		}
 
-	log.Info("Aggregated proof generated")
-
-	proof.Proof = recursiveProof
+		log.Info("Aggregated proof generated")
+		proof.Proof = recursiveProof
+	}
 
 	// update the state by removing the 2 aggregated proofs and storing the
 	// newly generated recursive proof
@@ -1357,13 +1364,6 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	log = log.WithFields("proofId", *proof.ProofID)
 
 	monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
-	a.monitoredProofHashTxLock.Lock()
-	if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
-		log.Debugf("proof hash transaction already sent. monitoredTxID: %s", monitoredTxID)
-		return false, nil
-	}
-	a.monitoredProofHashTxLock.Unlock()
-
 	_, err = a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 	if err != nil && err != state.ErrNotFound {
 		log.Errorf("failed to read finalProof from table. err: %v", err)
