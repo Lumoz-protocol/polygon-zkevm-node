@@ -114,7 +114,7 @@ func (c *Client) Add(ctx context.Context, owner, id string, from common.Address,
 	// add to storage
 	err = c.storage.Add(ctx, mTx, dbTx)
 	if err != nil {
-		err := fmt.Errorf("failed to add tx to get monitored: %w", err)
+		err := fmt.Errorf("failed to add tx to get monitored: %v", err)
 		log.Errorf(err.Error())
 		return err
 	}
@@ -135,6 +135,16 @@ func (c *Client) AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) error 
 	}
 
 	return c.Add(ctx, tx.owner, tx.id, tx.from, tx.to, tx.value, tx.data, dbTx)
+}
+
+func (c *Client) UpdateId(ctx context.Context, id string, dbTx pgx.Tx) error {
+	tx, err := c.storage.GetStatusDone(ctx, id, dbTx)
+	if err != nil {
+		return err
+	}
+
+	dest := fmt.Sprintf("old-%d-%s", tx.blockNumber.Uint64(), id)
+	return c.storage.UpdateID(ctx, id, dest, dbTx)
 }
 
 // ResultsByStatus returns all the results for all the monitored txs related to the owner and matching the provided statuses

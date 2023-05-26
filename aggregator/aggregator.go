@@ -201,16 +201,6 @@ func (a *Aggregator) resendProoHash() {
 			continue
 		}
 
-		if have, err := a.State.HaveProverProofByBatchNum(a.ctx, lastVerifiedEthBatchNum+1, nil); err != nil {
-			log.Errorf("failed to query prover proof by batch num. lastVerifiedEthBatchNum = %d", lastVerifiedEthBatchNum)
-			time.Sleep(30 * time.Second)
-			continue
-		} else if !have {
-			log.Debugf("wait generate proof. batchnum: %d", lastVerifiedEthBatchNum+1)
-			time.Sleep(5 * time.Minute)
-			continue
-		}
-
 		sequence, err := a.State.GetSequence(a.ctx, lastVerifiedEthBatchNum+1, nil)
 		if err != nil {
 			log.Warnf("failed to get sequence. err: %v", err)
@@ -219,33 +209,47 @@ func (a *Aggregator) resendProoHash() {
 
 		log.Infof("sequence : %v", sequence)
 
-		monitoredTxID := buildMonitoredTxID(sequence.FromBatchNumber, sequence.ToBatchNumber)
-		_, err = a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
+		monitoredProofTxID := buildMonitoredTxID(sequence.FromBatchNumber, sequence.ToBatchNumber)
+		monitoredProofhashTxID := fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
+
+		if have, err := a.State.HaveProverProofByBatchNum(a.ctx, lastVerifiedEthBatchNum+1, nil); err != nil {
+			log.Errorf("failed to query prover proof by batch num. lastVerifiedEthBatchNum = %d", lastVerifiedEthBatchNum)
+			if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
+				log.Errorf("failed to update id. %s", monitoredProofhashTxID)
+			}
+			time.Sleep(30 * time.Second)
+			continue
+		} else if !have {
+			log.Debugf("wait generate proof. batchnum: %d", lastVerifiedEthBatchNum+1)
+			time.Sleep(5 * time.Minute)
+			continue
+		}
+
+		_, err = a.State.GetStatusDoneBlockNum(a.ctx, monitoredProofTxID, nil)
 		if err != nil && err != state.ErrNotFound {
-			log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredTxID, err)
+			log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredProofTxID, err)
 		}
 
 		if err == nil {
 			continue
 		}
 
-		monitoredTxID = fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
-		proofHashTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredTxID, nil)
+		proofHashTxBlockNumber, err := a.State.GetStatusDoneBlockNum(a.ctx, monitoredProofhashTxID, nil)
 		if err != nil {
-			log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredTxID, err)
+			log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredProofhashTxID, err)
 		}
 
-		log.Infof("proofHashTxBlockNumber : %v, monitoredTxID: %s", proofHashTxBlockNumber, monitoredTxID)
+		log.Infof("proofHashTxBlockNumber : %v, monitoredTxID: %s", proofHashTxBlockNumber, monitoredProofhashTxID)
 
 		if (proofHashTxBlockNumber + 20) > curBlockNumber {
 			if (proofHashTxBlockNumber + 10) < curBlockNumber {
 				a.monitoredProofHashTxLock.Lock()
-				if _, ok := a.monitoredProofHashTx[monitoredTxID]; !ok {
-					a.monitoredProofHashTx[monitoredTxID] = true
+				if _, ok := a.monitoredProofHashTx[monitoredProofhashTxID]; !ok {
+					a.monitoredProofHashTx[monitoredProofhashTxID] = true
 				}
 				a.monitoredProofHashTxLock.Unlock()
 
-				a.monitorSendProof(sequence.ToBatchNumber, monitoredTxID)
+				a.monitorSendProof(sequence.ToBatchNumber, monitoredProofhashTxID)
 			}
 			log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
 			continue
@@ -257,11 +261,11 @@ func (a *Aggregator) resendProoHash() {
 			continue
 		}
 		a.monitoredProofHashTxLock.Lock()
-		if _, ok := a.monitoredProofHashTx[monitoredTxID]; !ok {
-			a.monitoredProofHashTx[monitoredTxID] = true
+		if _, ok := a.monitoredProofHashTx[monitoredProofhashTxID]; !ok {
+			a.monitoredProofHashTx[monitoredProofhashTxID] = true
 		}
 		a.monitoredProofHashTxLock.Unlock()
-		if err := a.EthTxManager.AddReSendTx(a.ctx, monitoredTxID, dbTx); err != nil {
+		if err := a.EthTxManager.AddReSendTx(a.ctx, monitoredProofhashTxID, dbTx); err != nil {
 
 			if err := dbTx.Rollback(a.ctx); err != nil {
 				err := fmt.Errorf("failed to rollback resend: %v", err)
@@ -287,7 +291,7 @@ func (a *Aggregator) resendProoHash() {
 			}
 		}, nil)
 
-		a.monitorSendProof(sequence.ToBatchNumber, monitoredTxID)
+		a.monitorSendProof(sequence.ToBatchNumber, monitoredProofhashTxID)
 		log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
 	}
 }
