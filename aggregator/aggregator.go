@@ -84,6 +84,9 @@ type Aggregator struct {
 
 	buildFinalProofBatchNumMutex *sync.Mutex
 	buildFinalProofBatchNum      uint64
+
+	monitoredProofHashTxLock *sync.Mutex
+	monitoredProofHashTx     map[string]bool
 }
 
 // New creates a new aggregator.
@@ -114,8 +117,10 @@ func New(
 		buildFinalProofBatchNumMutex: &sync.Mutex{},
 		TimeCleanupLockedProofs:      cfg.CleanupLockedProofsInterval,
 
-		finalProof:  make(chan finalProofMsg),
-		proofHashCH: make(chan proofHash),
+		finalProof:               make(chan finalProofMsg),
+		proofHashCH:              make(chan proofHash),
+		monitoredProofHashTxLock: &sync.Mutex{},
+		monitoredProofHashTx:     make(map[string]bool),
 	}
 
 	return a, nil
@@ -218,11 +223,18 @@ func (a *Aggregator) resendProoHash() {
 			log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredTxID, err)
 		}
 
-		log.Infof("proofHashTxBlockNumber : %v", proofHashTxBlockNumber)
+		log.Infof("proofHashTxBlockNumber : %v, monitoredTxID: %s", proofHashTxBlockNumber, monitoredTxID)
 
 		if (proofHashTxBlockNumber + 20) > curBlockNumber {
 			if (proofHashTxBlockNumber + 10) < curBlockNumber {
-				a.monitorSendProof(sequence.ToBatchNumber)
+
+				a.monitoredProofHashTxLock.Lock()
+				if _, ok := a.monitoredProofHashTx[monitoredTxID]; !ok {
+					a.monitoredProofHashTx[monitoredTxID] = true
+				}
+				a.monitoredProofHashTxLock.Unlock()
+
+				a.monitorSendProof(sequence.ToBatchNumber, monitoredTxID)
 			}
 			log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
 			continue
@@ -233,6 +245,11 @@ func (a *Aggregator) resendProoHash() {
 			log.Errorf("failed to begin state transaction for resend. err: %v", err)
 			continue
 		}
+		a.monitoredProofHashTxLock.Lock()
+		if _, ok := a.monitoredProofHashTx[monitoredTxID]; !ok {
+			a.monitoredProofHashTx[monitoredTxID] = true
+		}
+		a.monitoredProofHashTxLock.Unlock()
 		if err := a.EthTxManager.AddReSendTx(a.ctx, monitoredTxID, dbTx); err != nil {
 
 			if err := dbTx.Rollback(a.ctx); err != nil {
@@ -252,7 +269,7 @@ func (a *Aggregator) resendProoHash() {
 			continue
 		}
 
-		a.monitorSendProof(sequence.ToBatchNumber)
+		a.monitorSendProof(sequence.ToBatchNumber, monitoredTxID)
 		log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d", proofHashTxBlockNumber, curBlockNumber)
 	}
 }
@@ -399,7 +416,8 @@ func (a *Aggregator) sendFinalProof() {
 
 				hash := crypto.Keccak256Hash(pack)
 				proverProof, err := a.State.GetProverProofByHash(a.ctx, hash.String(), proof.BatchNumberFinal, nil)
-				log.Infof("hash = %s, proverProof = %v", hash.String(), proverProof)
+				monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+				log.Infof("monitoredTxID = %s, hash = %s, proverProof = %v", monitoredTxID, hash.String(), proverProof)
 				if err != nil || proverProof == nil {
 					a.startProofHash()
 
@@ -438,26 +456,12 @@ func (a *Aggregator) sendFinalProof() {
 						continue
 					}
 
-					monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
 					sender := common.HexToAddress(a.cfg.SenderAddress)
 					err = a.EthTxManager.Add(ctx, ethTxManagerOwner, monitoredTxID, sender, to, nil, data, nil)
 					if err != nil {
 						log := log.WithFields("tx", monitoredTxID)
 						log.Errorf("Error to add batch verification tx to eth tx manager: %v", err)
 
-						//if err := a.State.AddProverProof(a.ctx, &state.ProverProof{
-						//	InitNumBatch:  proof.BatchNumber,
-						//	FinalNewBatch: proof.BatchNumberFinal,
-						//	NewStateRoot:  finalBatch.StateRoot,
-						//	LocalExitRoot: finalBatch.LocalExitRoot,
-						//	Proof:         msg.finalProof.Proof,
-						//	ProofHash:     hash,
-						//}, nil); err != nil {
-						//	log := log.WithFields("tx", monitoredTxID)
-						//	log.Errorf("Error to add prover proof to db: %v", err)
-						//	continue
-						//}
-						//go a.monitorSendProof(proof.BatchNumberFinal)
 						a.endProofHash()
 						a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
 						continue
@@ -488,7 +492,7 @@ func (a *Aggregator) sendFinalProof() {
 					a.resetVerifyProofHashTime()
 					a.endProofHash()
 				}
-				go a.monitorSendProof(proof.BatchNumberFinal)
+				go a.monitorSendProof(proof.BatchNumberFinal, monitoredTxID)
 			}
 		case proofHash := <-a.proofHashCH:
 			proverProof, err := a.State.GetProverProofByHash(a.ctx, proofHash.hash, proofHash.batchNumberFinal, nil)
@@ -538,6 +542,12 @@ func (a *Aggregator) sendFinalProof() {
 
 			a.resetVerifyProofTime()
 			a.endProofVerification()
+
+			a.monitoredProofHashTxLock.Lock()
+			if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
+				delete(a.monitoredProofHashTx, monitoredTxID)
+			}
+			a.monitoredProofHashTxLock.Unlock()
 
 			// case msg := <-a.finalProof:
 			// 	ctx := a.ctx
@@ -591,7 +601,7 @@ func (a *Aggregator) sendFinalProof() {
 	}
 }
 
-func (a *Aggregator) monitorSendProof(batchNumberFinal uint64) {
+func (a *Aggregator) monitorSendProof(batchNumberFinal uint64, monitoredTxID string) {
 	tick := time.NewTicker(time.Second * 10)
 	for {
 		select {
@@ -610,7 +620,7 @@ func (a *Aggregator) monitorSendProof(batchNumberFinal uint64) {
 				continue
 			}
 
-			log.Infof("proofHashBlockNum = %d, max_commit_proof = %d, blockNumber =%d", proofHashBlockNum, max_commit_proof, blockNumber)
+			log.Infof("proofHashBlockNum = %d, max_commit_proof = %d, blockNumber =%d, monitoredTxID = %s", proofHashBlockNum, max_commit_proof, blockNumber, monitoredTxID)
 			if proofHashBlockNum+max_commit_proof > blockNumber {
 				continue
 			}
@@ -770,6 +780,12 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 
 		// 从数据表读取finalProof
 		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+		a.monitoredProofHashTxLock.Lock()
+		if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
+			log.Debugf("Resending proof hash transaction. monitoredTxID: %s", monitoredTxID)
+			return false, nil
+		}
+		a.monitoredProofHashTxLock.Unlock()
 		stateFinalProof, err := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 		if err != nil && err != state.ErrNotFound {
 			log.Errorf("failed to read finalProof from table. err: %v", err)
@@ -806,6 +822,12 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 	} else {
 		buildFinalProof := false
 		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+		a.monitoredProofHashTxLock.Lock()
+		if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
+			log.Debugf("Resending proof hash transaction. monitoredTxID: %s", monitoredTxID)
+			return false, nil
+		}
+		a.monitoredProofHashTxLock.Unlock()
 		stateFinalProof, err := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 		if err != nil && err != state.ErrNotFound {
 			log.Errorf("failed to read finalProof from table. err: %v", err)
