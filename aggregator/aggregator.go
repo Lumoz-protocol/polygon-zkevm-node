@@ -474,6 +474,7 @@ func (a *Aggregator) sendFinalProof() {
 							resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
 							resultLog.Error("failed to send proof hash, TODO: review this fatal and define what to do in this case")
 						}
+						return
 					}, nil)
 
 					if err := a.State.AddProverProof(a.ctx, &state.ProverProof{
