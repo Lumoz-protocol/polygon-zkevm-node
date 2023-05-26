@@ -1422,7 +1422,7 @@ func (a *Aggregator) isSynced(ctx context.Context, batchNum *uint64) bool {
 	}
 
 	if batchNum != nil && lastVerifiedBatch.BatchNumber < *batchNum {
-		log.Infof("Waiting for the state to be synced, lastVerifiedBatchNum: %d, waiting for batch: %d", lastVerifiedBatch.BatchNumber, batchNum)
+		log.Infof("Waiting for the state to be synced, lastVerifiedBatchNum: %d, waiting for batch: %d", lastVerifiedBatch.BatchNumber, *batchNum)
 		return false
 	}
 
