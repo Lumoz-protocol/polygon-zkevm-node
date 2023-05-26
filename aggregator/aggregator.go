@@ -215,7 +215,7 @@ func (a *Aggregator) resendProoHash() {
 		if have, err := a.State.HaveProverProofByBatchNum(a.ctx, lastVerifiedEthBatchNum+1, nil); err != nil {
 			log.Errorf("failed to query prover proof by batch num. lastVerifiedEthBatchNum = %d", lastVerifiedEthBatchNum)
 			if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
-				log.Errorf("failed to update id. %s", monitoredProofhashTxID)
+				log.Errorf("failed to update id. %s, err: %v", monitoredProofhashTxID, err)
 			}
 			time.Sleep(30 * time.Second)
 			continue
