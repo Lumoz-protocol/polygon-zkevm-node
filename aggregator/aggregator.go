@@ -291,6 +291,9 @@ func (a *Aggregator) resendProoHash() {
 			if result.Status == ethtxmanager.MonitoredTxStatusFailed {
 				resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
 				resultLog.Error("failed to resend proof hash, TODO: review this fatal and define what to do in this case")
+				if err := a.EthTxManager.UpdateId(a.ctx, result.ID, nil); err != nil {
+					resultLog.Error(err)
+				}
 			}
 		}, nil)
 
@@ -502,6 +505,9 @@ func (a *Aggregator) sendFinalProof() {
 						if result.Status == ethtxmanager.MonitoredTxStatusFailed {
 							resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
 							resultLog.Error("failed to send proof hash, TODO: review this fatal and define what to do in this case")
+							if err := a.EthTxManager.UpdateId(a.ctx, result.ID, nil); err != nil {
+								resultLog.Error(err)
+							}
 						}
 					}, nil)
 
@@ -1568,6 +1574,9 @@ func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResu
 	resLog := log.WithFields("owner", ethTxManagerOwner, "txId", result.ID)
 	if result.Status == ethtxmanager.MonitoredTxStatusFailed {
 		resLog.Error("failed to send batch verification, TODO: review this fatal and define what to do in this case")
+		if err := a.EthTxManager.UpdateId(a.ctx, result.ID, nil); err != nil {
+			resLog.Error(err)
+		}
 		return
 	}
 

@@ -422,12 +422,6 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 				if err != nil {
 					mTxLog.Errorf("failed to send tx %v to network: %v, %v", signedTx.Hash().String(), err, err.Error() == core.ErrNonceTooLow.Error())
 					if err.Error() == core.ErrNonceTooLow.Error() {
-						// mTxLog.Infof("nonce needs to be updated")
-						// err := c.ReviewMonitoredTxNonce(ctx, &mTx)
-						// if err != nil {
-						// 	mTxLog.Errorf("failed to review monitored tx nonce: %v", err)
-						// 	continue
-						// }
 						mTx.status = MonitoredTxStatusFailed
 						err = c.storage.Update(ctx, mTx, nil)
 						if err != nil {
@@ -622,7 +616,7 @@ func (c *Client) ProcessPendingMonitoredTxs(ctx context.Context, owner string, r
 	statusesFilter := []MonitoredTxStatus{
 		MonitoredTxStatusCreated,
 		MonitoredTxStatusSent,
-		MonitoredTxStatusFailed,
+		// MonitoredTxStatusFailed,
 		MonitoredTxStatusConfirmed,
 		MonitoredTxStatusReorged,
 	}
