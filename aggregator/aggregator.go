@@ -439,6 +439,11 @@ func (a *Aggregator) sendFinalProof() {
 				hash := crypto.Keccak256Hash(pack)
 				proverProof, err := a.State.GetProverProofByHash(a.ctx, hash.String(), proof.BatchNumberFinal, nil)
 				monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+				a.monitoredProofHashTxLock.Lock()
+				if _, ok := a.monitoredProofHashTx[monitoredTxID]; !ok {
+					a.monitoredProofHashTx[monitoredTxID] = true
+				}
+				a.monitoredProofHashTxLock.Unlock()
 				log.Infof("monitoredTxID = %s, hash = %s, proverProof = %v", monitoredTxID, hash.String(), proverProof)
 				if err != nil || proverProof == nil {
 					a.startProofHash()
