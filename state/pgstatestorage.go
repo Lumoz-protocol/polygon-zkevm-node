@@ -2512,6 +2512,24 @@ func (p *PostgresStorage) GetProverProofByHash(ctx context.Context, hash string,
 	}, nil
 }
 
+func (p *PostgresStorage) HaveProverProofByBatchNum(ctx context.Context, batchNumberFinal uint64, dbTx pgx.Tx) (bool, error) {
+	var num int
+	const getBatchByNumberSQL = `SELECT count(1) FROM state.prover_proof WHERE final_new_batch = $1`
+
+	e := p.getExecQuerier(dbTx)
+	err := e.QueryRow(ctx, getBatchByNumberSQL, batchNumberFinal).Scan(&num)
+
+	if err != nil {
+		return false, err
+	}
+
+	if num == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func (p *PostgresStorage) GetSequenceLastCommitBlock(ctx context.Context, owner string, dbTx pgx.Tx) (string, uint64, error) {
 	e := p.getExecQuerier(dbTx)
 	cmd := `SELECT id, COALESCE(block_num, 0) FROM state.monitored_txs where owner = $1 and status = 'sent'`

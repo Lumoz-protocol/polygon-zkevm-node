@@ -418,6 +418,10 @@ func (p *StateMock) GetStatusDoneBlockNum(ctx context.Context, id string, dbTx p
 	return 0, nil
 }
 
+func (p *StateMock) HaveProverProofByBatchNum(ctx context.Context, batchNumberFinal uint64, dbTx pgx.Tx) (bool, error) {
+	return true, nil
+}
+
 type mockConstructorTestingTNewStateMock interface {
 	mock.TestingT
 	Cleanup(func())

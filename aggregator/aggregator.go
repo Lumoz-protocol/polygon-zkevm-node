@@ -201,6 +201,16 @@ func (a *Aggregator) resendProoHash() {
 			continue
 		}
 
+		if have, err := a.State.HaveProverProofByBatchNum(a.ctx, lastVerifiedEthBatchNum+1, nil); err != nil {
+			log.Errorf("failed to query prover proof by batch num. lastVerifiedEthBatchNum = %d", lastVerifiedEthBatchNum)
+			time.Sleep(30 * time.Second)
+			continue
+		} else if !have {
+			log.Debugf("wait generate proof. batchnum: %d", lastVerifiedEthBatchNum+1)
+			time.Sleep(5 * time.Minute)
+			continue
+		}
+
 		sequence, err := a.State.GetSequence(a.ctx, lastVerifiedEthBatchNum+1, nil)
 		if err != nil {
 			log.Warnf("failed to get sequence. err: %v", err)
