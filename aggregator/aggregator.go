@@ -784,30 +784,28 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 	if proof == nil {
 		// we don't have a proof generating at the moment, check if we
 		// have a proof ready to verify
-		// a.buildFinalProofBatchNumMutex.Lock()
-		// if a.buildFinalProofBatchNum == 0 {
-		// 	a.buildFinalProofBatchNum = lastVerifiedBatchNum
-		// } else {
-		// 	// bug
-		// 	for {
-		// 		a.buildFinalProofBatchNum++
-		// 		sequence, err := a.State.GetSequence(a.ctx, a.buildFinalProofBatchNum+1, nil)
-		// 		if err != nil {
-		// 			log.Warnf("failed to get sequence. err: %v", err)
-		// 			return false, nil
-		// 		}
+		a.buildFinalProofBatchNumMutex.Lock()
+		if a.buildFinalProofBatchNum == 0 {
+			a.buildFinalProofBatchNum = lastVerifiedBatchNum
+		} else {
+			for {
+				a.buildFinalProofBatchNum++
+				sequence, err := a.State.GetSequence(a.ctx, a.buildFinalProofBatchNum+1, nil)
+				if err != nil {
+					log.Warnf("failed to get sequence. err: %v", err)
+					return false, nil
+				}
 
-		// 		if sequence.FromBatchNumber == a.buildFinalProofBatchNum {
-		// 			break
-		// 		}
-		// 	}
+				if sequence.FromBatchNumber == (a.buildFinalProofBatchNum + 1) {
+					break
+				}
+			}
 
-		// }
-		// a.buildFinalProofBatchNumMutex.Unlock()
+		}
+		a.buildFinalProofBatchNumMutex.Unlock()
 
-		// log.Infof("getAndLockProofReadyToVerify lastVerifiedBatchNum: %d, buildFinalProofBatchNum: %d", lastVerifiedBatchNum, a.buildFinalProofBatchNum)
-		// proof, err = a.getAndLockProofReadyToVerify(ctx, prover, a.buildFinalProofBatchNum)
-		proof, err = a.getAndLockProofReadyToVerify(ctx, prover, lastVerifiedBatchNum)
+		log.Infof("getAndLockProofReadyToVerify lastVerifiedBatchNum: %d, buildFinalProofBatchNum: %d", lastVerifiedBatchNum, a.buildFinalProofBatchNum)
+		proof, err = a.getAndLockProofReadyToVerify(ctx, prover, a.buildFinalProofBatchNum)
 		if errors.Is(err, state.ErrNotFound) {
 			// nothing to verify, swallow the error
 			log.Debugf("No proof ready to verify. lastVerifiedBatchNum: %d, buildFinalProofBatchNum: %d", lastVerifiedBatchNum, a.buildFinalProofBatchNum)
@@ -957,7 +955,16 @@ func (a *Aggregator) validateEligibleFinalProof(ctx context.Context, proof *stat
 			return false, false, nil
 		} else {
 			log.Debugf("Proof batch number %d is not the following to last verfied batch number %d", proof.BatchNumber, lastVerifiedBatchNum)
-			return false, false, nil
+			bComplete, err := a.State.CheckProofContainsCompleteSequences(ctx, proof, nil)
+			if err != nil {
+				return false, false, fmt.Errorf("failed to check if proof contains complete sequences, %v", err)
+			}
+			if !bComplete {
+				log.Infof("Recursive proof %d-%d not eligible to be verified: not containing complete sequences", proof.BatchNumber, proof.BatchNumberFinal)
+				return false, false, nil
+			}
+
+			return false, true, nil
 		}
 	}
 
