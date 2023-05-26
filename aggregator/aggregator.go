@@ -459,6 +459,8 @@ func (a *Aggregator) sendFinalProof() {
 				msg := finalProofMsgs[0]
 				if finalProofMsgs.Len() > 1 {
 					finalProofMsgs = finalProofMsgs[1:]
+				} else {
+					finalProofMsgs = make(finalProofMsgList, 0)
 				}
 				lock.Unlock()
 				ctx := a.ctx
