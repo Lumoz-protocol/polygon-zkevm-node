@@ -1505,12 +1505,16 @@ func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResu
 		return
 	}
 
-	// monitoredIDFormat: "proof-from-%v-to-%v" "proof-hash-from-%v-to-%v"
-	idSlice := strings.Split(result.ID, "-")
-	proofBatchNumberStr := idSlice[2]
-	if len(idSlice) == 6 {
-		proofBatchNumberStr = idSlice[3]
+	if strings.Contains(result.ID, "proof-hash-from-") {
+		return
 	}
+
+	// monitoredIDFormat: "proof-from-%v-to-%v"
+	idSlice := strings.Split(result.ID, "-")
+	if len(idSlice) == 6 {
+		return
+	}
+	proofBatchNumberStr := idSlice[2]
 
 	proofBatchNumber, err := strconv.ParseUint(proofBatchNumberStr, encoding.Base10, 0)
 	if err != nil {
@@ -1518,9 +1522,6 @@ func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResu
 	}
 
 	proofBatchNumberFinalStr := idSlice[4]
-	if len(idSlice) == 6 {
-		proofBatchNumberFinalStr = idSlice[5]
-	}
 	proofBatchNumberFinal, err := strconv.ParseUint(proofBatchNumberFinalStr, encoding.Base10, 0)
 	if err != nil {
 		resLog.Errorf("failed to read final proof batch number final from monitored tx: %v", err)
