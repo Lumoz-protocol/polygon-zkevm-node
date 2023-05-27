@@ -183,6 +183,8 @@ func (a *Aggregator) Start(ctx context.Context) error {
 func (a *Aggregator) resendProoHash() {
 	blockNumber := uint64(0)
 	lastBatchNum := uint64(0)
+	initBlockNumber := uint64(0)
+	initLastBatchNum := uint64(0)
 	for {
 		select {
 		case <-a.ctx.Done():
@@ -211,6 +213,12 @@ func (a *Aggregator) resendProoHash() {
 			continue
 		}
 		tmp := lastVerifiedEthBatchNum
+		if (initLastBatchNum + 1) <= lastVerifiedEthBatchNum {
+			initBlockNumber = curBlockNumber
+			initLastBatchNum = lastVerifiedEthBatchNum
+		}
+		// if currentVerifyBatchNum  == lastVerifiedEthBatchNum {}
+		// currentVerifyBatchNum = lastVerifiedEthBatchNum
 		for {
 			sequence, err := a.State.GetSequence(a.ctx, tmp+1, nil)
 			if err != nil {
@@ -223,7 +231,9 @@ func (a *Aggregator) resendProoHash() {
 			}
 
 			if lastBatchNum > 0 && lastBatchNum > sequence.ToBatchNumber {
-				continue
+				if curBlockNumber-initBlockNumber <= 20 {
+					continue
+				}
 			}
 
 			lastBatchNum = sequence.ToBatchNumber
@@ -874,7 +884,7 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 					proverName: proverName,
 					proverID:   proverID,
 				}
-
+				proof = &state.Proof{}
 				proof.ProofID = &stateFinalProof.FinalProofId
 				msg.recursiveProof = proof
 				msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
