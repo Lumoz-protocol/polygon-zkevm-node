@@ -975,12 +975,28 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 		if !eligible {
 			if generate {
 				// at this point we have an eligible proof, build the final one using it
-				_, err := a.buildFinalProof(ctx, prover, proof)
+				finalProof, err := a.buildFinalProof(ctx, prover, proof)
 				if err != nil {
 					err = fmt.Errorf("failed to build final proof, %v", err)
 					log.Error(FirstToUpper(err.Error()))
 					return false, err
 				}
+
+				msg = finalProofMsg{
+					proverName:     proverName,
+					proverID:       proverID,
+					recursiveProof: proof,
+					finalProof:     finalProof,
+				}
+
+				select {
+				case <-a.ctx.Done():
+					return false, a.ctx.Err()
+				case a.finalProof <- msg:
+				}
+
+				log.Debug("tryBuildFinalProof end")
+				return true, nil
 			}
 			return false, nil
 		}
