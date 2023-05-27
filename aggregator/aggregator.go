@@ -884,8 +884,11 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 					proverName: proverName,
 					proverID:   proverID,
 				}
-				proof = &state.Proof{}
-				proof.ProofID = &stateFinalProof.FinalProofId
+				proof = &state.Proof{
+					BatchNumber:      sequence.FromBatchNumber,
+					BatchNumberFinal: sequence.ToBatchNumber,
+					ProofID:          &stateFinalProof.FinalProofId,
+				}
 				msg.recursiveProof = proof
 				msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
 			}
