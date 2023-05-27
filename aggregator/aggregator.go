@@ -509,6 +509,7 @@ func (a *Aggregator) sendFinalProof() {
 			a.monitoredProofHashTxLock.Lock()
 			monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, msg.recursiveProof.BatchNumber, msg.recursiveProof.BatchNumberFinal)
 			if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
+				a.monitoredProofHashTxLock.Unlock()
 				continue
 			}
 			a.monitoredProofHashTxLock.Unlock()
