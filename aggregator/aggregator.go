@@ -502,8 +502,9 @@ func (a *Aggregator) sendFinalProof() {
 
 				lock.Lock()
 				msg := finalProofMsgs[0]
-				if commitProoHashBatchNum != msg.recursiveProof.BatchNumberFinal {
-					log.Debugf("wait commit . current commit proof hash batch num. %s", commitProoHashBatchNum)
+				if (commitProoHashBatchNum + 1) != msg.recursiveProof.BatchNumber {
+					log.Debugf("wait commit . current need commit proof init hash batch num. %d, commiing: %d", commitProoHashBatchNum, msg.recursiveProof.BatchNumber)
+					lock.Unlock()
 					continue
 				}
 				if finalProofMsgs.Len() > 1 {
