@@ -482,7 +482,7 @@ func (a *Aggregator) sendFinalProof() {
 				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
 				continue
 			}
-			if commitProoHashBatchNum == 0 {
+			if commitProoHashBatchNum < lastVerifiedEthBatchNum {
 				commitProoHashBatchNum = lastVerifiedEthBatchNum
 			}
 			if finalProofMsgs.Len() > 0 {
