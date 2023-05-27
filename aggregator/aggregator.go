@@ -180,6 +180,51 @@ func (a *Aggregator) Start(ctx context.Context) error {
 	return ctx.Err()
 }
 
+func (a *Aggregator) sendGenarateFinalProof() {
+	var lastVerifiedBatchNum uint64
+	lastVerifiedBatch, err := a.State.GetLastVerifiedBatch(a.ctx, nil)
+	if err != nil && !errors.Is(err, state.ErrNotFound) {
+		log.Fatalf("failed to get last verified batch, %v", err)
+	}
+
+	if errors.Is(err, state.ErrNotFound) {
+		return
+	}
+
+	if lastVerifiedBatch != nil {
+		lastVerifiedBatchNum = lastVerifiedBatch.BatchNumber
+	}
+	for {
+		var msg finalProofMsg
+
+		sequence, err := a.State.GetSequence(a.ctx, lastVerifiedBatchNum+1, nil)
+		if err != nil && err != state.ErrStateNotSynchronized {
+			log.Fatalf("failed to get sequence. err: %v", err)
+		}
+
+		if err == state.ErrStateNotSynchronized {
+			break
+		}
+		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
+		stateFinalProof, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
+		if errFinalProof != nil {
+			break
+		}
+
+		msg = finalProofMsg{}
+		proof := &state.Proof{
+			BatchNumber:      sequence.FromBatchNumber,
+			BatchNumberFinal: sequence.ToBatchNumber,
+			ProofID:          &stateFinalProof.FinalProofId,
+		}
+		msg.recursiveProof = proof
+		msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
+
+		a.finalProof <- msg
+		lastVerifiedBatchNum++
+	}
+}
+
 func (a *Aggregator) resendProoHash() {
 	blockNumber := uint64(0)
 	lastBatchNum := uint64(0)
@@ -343,6 +388,8 @@ func (a *Aggregator) resendProoHash() {
 			log.Infof("resend proof hash tx end. monitoredProofhashTxID: %d", monitoredProofhashTxID)
 			tmp++
 		}
+
+		a.sendGenarateFinalProof()
 	}
 }
 
@@ -1260,19 +1307,6 @@ func (a *Aggregator) tryAggregateProofs(ctx context.Context, prover proverInterf
 		ProverID:         &proverID,
 		InputProver:      string(b),
 	}
-
-	aggrProofID, err = prover.AggregatedProof(proof1.Proof, proof2.Proof)
-	if err != nil {
-		err = fmt.Errorf("failed to get aggregated proof id, %v", err)
-		log.Error(FirstToUpper(err.Error()))
-		return false, err
-	}
-
-	proof.ProofID = aggrProofID
-
-	log.Infof("Proof ID for aggregated proof: %v", *proof.ProofID)
-	log = log.WithFields("proofId", *proof.ProofID)
-
 	monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
 	_, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 	if errFinalProof != nil && errFinalProof != state.ErrNotFound {
@@ -1280,6 +1314,18 @@ func (a *Aggregator) tryAggregateProofs(ctx context.Context, prover proverInterf
 		return false, errFinalProof
 	}
 	if errFinalProof == state.ErrNotFound {
+		aggrProofID, err = prover.AggregatedProof(proof1.Proof, proof2.Proof)
+		if err != nil {
+			err = fmt.Errorf("failed to get aggregated proof id, %v", err)
+			log.Error(FirstToUpper(err.Error()))
+			return false, err
+		}
+
+		proof.ProofID = aggrProofID
+
+		log.Infof("Proof ID for aggregated proof: %v", *proof.ProofID)
+		log = log.WithFields("proofId", *proof.ProofID)
+
 		recursiveProof, err := prover.WaitRecursiveProof(ctx, *proof.ProofID)
 		if err != nil {
 			err = fmt.Errorf("failed to get aggregated proof from prover, %v", err)
