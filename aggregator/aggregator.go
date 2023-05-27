@@ -1530,22 +1530,6 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	}
 
 	proof.InputProver = string(b)
-
-	log.Infof("Sending a batch to the prover. OldStateRoot [%#x], OldBatchNum [%d]",
-		inputProver.PublicInputs.OldStateRoot, inputProver.PublicInputs.OldBatchNum)
-
-	genProofID, err = prover.BatchProof(inputProver)
-	if err != nil {
-		err = fmt.Errorf("failed to get batch proof id, %v", err)
-		log.Error(FirstToUpper(err.Error()))
-		return false, err
-	}
-
-	proof.ProofID = genProofID
-
-	log.Infof("Proof ID %v", *proof.ProofID)
-	log = log.WithFields("proofId", *proof.ProofID)
-
 	sequence, err := a.State.GetSequence(a.ctx, proof.BatchNumberFinal, nil)
 	if err != nil {
 		return false, err
@@ -1559,6 +1543,21 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	}
 
 	if errFinalProof == state.ErrNotFound {
+		log.Infof("Sending a batch to the prover. OldStateRoot [%#x], OldBatchNum [%d]",
+			inputProver.PublicInputs.OldStateRoot, inputProver.PublicInputs.OldBatchNum)
+
+		genProofID, err = prover.BatchProof(inputProver)
+		if err != nil {
+			err = fmt.Errorf("failed to get batch proof id, %v", err)
+			log.Error(FirstToUpper(err.Error()))
+			return false, err
+		}
+
+		proof.ProofID = genProofID
+
+		log.Infof("Proof ID %v", *proof.ProofID)
+		log = log.WithFields("proofId", *proof.ProofID)
+
 		resGetProof, err := prover.WaitRecursiveProof(ctx, *proof.ProofID)
 		if err != nil {
 			err = fmt.Errorf("failed to get proof from prover, %v", err)
