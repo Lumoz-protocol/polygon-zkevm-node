@@ -117,8 +117,8 @@ func New(
 		buildFinalProofBatchNumMutex: &sync.Mutex{},
 		TimeCleanupLockedProofs:      cfg.CleanupLockedProofsInterval,
 
-		finalProof:               make(chan finalProofMsg),
-		proofHashCH:              make(chan proofHash),
+		finalProof:               make(chan finalProofMsg, 10240),
+		proofHashCH:              make(chan proofHash, 10240),
 		monitoredProofHashTxLock: &sync.Mutex{},
 		monitoredProofHashTx:     make(map[string]bool),
 	}
