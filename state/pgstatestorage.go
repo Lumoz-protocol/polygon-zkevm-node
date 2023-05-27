@@ -2546,18 +2546,19 @@ func (p *PostgresStorage) GetSequenceLastCommitBlock(ctx context.Context, owner 
 	return id, blockNumber, nil
 }
 
-func (p *PostgresStorage) GetStatusDoneBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, error) {
+func (p *PostgresStorage) GetTxBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, string, error) {
 	conn := p.getExecQuerier(dbTx)
-	cmd := `SELECT block_num FROM state.monitored_txs WHERE id = $1 AND status = 'done'`
+	cmd := `SELECT COALESCE(block_num, 0), status FROM state.monitored_txs WHERE id = $1`
 
 	var blockNumber uint64
+	var status string
 
-	err := conn.QueryRow(ctx, cmd, id).Scan(&blockNumber)
+	err := conn.QueryRow(ctx, cmd, id).Scan(&blockNumber, &status)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return 0, ErrNotFound
+		return 0, status, ErrNotFound
 	} else if err != nil {
-		return 0, err
+		return 0, status, err
 	}
 
-	return blockNumber, nil
+	return blockNumber, status, nil
 }

@@ -84,7 +84,7 @@ func (s *PostgresStorage) GetFinalTx(ctx context.Context, id string, dbTx pgx.Tx
 	cmd := `
         SELECT owner, id, from_addr, to_addr, nonce, value, data, gas, gas_price, status, block_num, history, created_at, updated_at
           FROM state.monitored_txs
-         WHERE id = $1 AND (status = 'done' or status = 'failed')`
+         WHERE id = $1`
 
 	mTx := monitoredTx{}
 

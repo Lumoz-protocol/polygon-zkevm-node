@@ -78,6 +78,6 @@ type stateInterface interface {
 	AddFinalProof(ctx context.Context, finalProof *state.FinalProof, dbTx pgx.Tx) error
 	GetFinalProofByMonitoredId(ctx context.Context, monitoredId string, dbTx pgx.Tx) (*state.FinalProof, error)
 	GetSequence(ctx context.Context, lastVerifiedBatchNumber uint64, dbTx pgx.Tx) (state.Sequence, error)
-	GetStatusDoneBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, error)
+	GetTxBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, string, error)
 	HaveProverProofByBatchNum(ctx context.Context, batchNumberFinal uint64, dbTx pgx.Tx) (bool, error)
 }

@@ -129,16 +129,9 @@ func (c *Client) AddReSendTx(ctx context.Context, id string, dbTx pgx.Tx) (bool,
 		return false, err
 	}
 
-	dest := fmt.Sprintf("failed-%d-%s", tx.nonce, id)
-	if tx.status == MonitoredTxStatusDone {
-		dest = fmt.Sprintf("old-%d-%s", tx.blockNumber.Uint64(), id)
-	}
+	dest := fmt.Sprintf("old-%d-%s", tx.createdAt.Unix(), id)
 	if err := c.storage.UpdateID(ctx, id, dest, dbTx); err != nil {
 		return false, err
-	}
-
-	if tx.status == MonitoredTxStatusCreated {
-		return false, nil
 	}
 
 	return true, c.Add(ctx, tx.owner, tx.id, tx.from, tx.to, tx.value, tx.data, dbTx)
@@ -150,10 +143,7 @@ func (c *Client) UpdateId(ctx context.Context, id string, dbTx pgx.Tx) error {
 		return err
 	}
 
-	dest := fmt.Sprintf("failed-%d-%s", tx.nonce, id)
-	if tx.status == MonitoredTxStatusDone {
-		dest = fmt.Sprintf("old-%d-%s", tx.blockNumber.Uint64(), id)
-	}
+	dest := fmt.Sprintf("old-%d-%s", tx.createdAt.Unix(), id)
 	return c.storage.UpdateID(ctx, id, dest, dbTx)
 }
 

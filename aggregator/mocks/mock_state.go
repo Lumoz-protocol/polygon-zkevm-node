@@ -414,8 +414,8 @@ func (p *StateMock) GetSequence(ctx context.Context, lastVerifiedBatchNumber uin
 	return state.Sequence{},nil
 }
 
-func (p *StateMock) GetStatusDoneBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, error)  {
-	return 0, nil
+func (p *StateMock) GetTxBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, string, error)  {
+	return 0, "",nil
 }
 
 func (p *StateMock) HaveProverProofByBatchNum(ctx context.Context, batchNumberFinal uint64, dbTx pgx.Tx) (bool, error) {
