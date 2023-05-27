@@ -206,6 +206,12 @@ func (a *Aggregator) sendGenarateFinalProof() {
 			break
 		}
 		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
+		a.monitoredProofHashTxLock.Lock()
+		if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
+			a.monitoredProofHashTxLock.Unlock()
+			continue
+		}
+		a.monitoredProofHashTxLock.Unlock()
 		stateFinalProof, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 		if errFinalProof != nil {
 			break
