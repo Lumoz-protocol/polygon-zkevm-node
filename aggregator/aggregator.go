@@ -338,11 +338,6 @@ func (a *Aggregator) resendProoHash() {
 				continue
 			}
 
-			a.monitoredProofHashTxLock.Lock()
-			if _, ok := a.monitoredProofHashTx[monitoredProofhashTxID]; !ok {
-				a.monitoredProofHashTx[monitoredProofhashTxID] = true
-			}
-			a.monitoredProofHashTxLock.Unlock()
 			if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
 				log.Error("failed to update monitored Proofhash tx id. monitoredProofhashTxID: %s, err: %v", monitoredProofhashTxID, err)
 				continue
