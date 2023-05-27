@@ -1490,7 +1490,12 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	log.Infof("Proof ID %v", *proof.ProofID)
 	log = log.WithFields("proofId", *proof.ProofID)
 
-	monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+	sequence, err := a.State.GetSequence(a.ctx, proof.BatchNumberFinal, nil)
+	if err != nil {
+		return false, err
+	}
+
+	monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
 	_, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 	if errFinalProof != nil && errFinalProof != state.ErrNotFound {
 		log.Errorf("failed to read finalProof from table. err: %v", err)
