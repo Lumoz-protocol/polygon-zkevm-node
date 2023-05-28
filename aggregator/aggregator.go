@@ -1067,20 +1067,33 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 
 		}
 		if errFinalProof != nil {
+			a.buildFinalProofBatchNumMutex.Lock()
+			batchNum := a.buildFinalProofBatchNum
+			if a.buildFinalProofBatchNum <= lastVerifiedBatchNum {
+				batchNum = lastVerifiedBatchNum
+			}
+
 			// we don't have a proof generating at the moment, check if we
 			// have a proof ready to verify
-			proof, err = a.getAndLockProofReadyToVerify(ctx, prover, lastVerifiedBatchNum)
+			proof, err = a.getAndLockProofReadyToVerify(ctx, prover, batchNum)
 			if errors.Is(err, state.ErrNotFound) {
 				// nothing to verify, swallow the error
-				log.Debugf("No proof ready to verify. lastVerifiedBatchNum: %d", lastVerifiedBatchNum)
+				a.buildFinalProofBatchNum = 0
+				// log.Debugf("No proof ready to verify. lastVerifiedBatchNum: %d", lastVerifiedBatchNum)
+				log.Debugf("No proof ready to verify. batchNum: %d", batchNum)
+				a.buildFinalProofBatchNumMutex.Unlock()
 				return false, nil
 			}
 
 			if err != nil {
 				log.Errorf("failed to get and lock proof ready to verify. err: %v", err)
+				a.buildFinalProofBatchNum = 0
+				a.buildFinalProofBatchNumMutex.Unlock()
 				return false, err
 			}
 
+			a.buildFinalProofBatchNum = proof.BatchNumberFinal
+			a.buildFinalProofBatchNumMutex.Unlock()
 			msg = finalProofMsg{
 				proverName: proverName,
 				proverID:   proverID,
@@ -1096,35 +1109,6 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 			msg.recursiveProof = proof
 			msg.finalProof = finalProof
 		}
-
-		// monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
-		// stateFinalProof, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
-		// if errFinalProof != nil && errFinalProof != state.ErrNotFound {
-		// 	log.Errorf("failed to read finalProof from table. err: %v", errFinalProof)
-		// 	return false, errFinalProof
-		// }
-
-		// msg = finalProofMsg{
-		// 	proverName: proverName,
-		// 	proverID:   proverID,
-		// }
-
-		// if errFinalProof == state.ErrNotFound {
-		// 	// at this point we have an eligible proof, build the final one using it
-		// 	finalProof, err := a.buildFinalProof(ctx, prover, proof)
-		// 	if err != nil {
-		// 		err = fmt.Errorf("failed to build final proof, %v", err)
-		// 		log.Error(FirstToUpper(err.Error()))
-		// 		return false, err
-		// 	}
-
-		// 	msg.recursiveProof = proof
-		// 	msg.finalProof = finalProof
-		// } else {
-		// 	proof.ProofID = &stateFinalProof.FinalProofId
-		// 	msg.recursiveProof = proof
-		// 	msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
-		// }
 
 		defer func() {
 			if err != nil {
