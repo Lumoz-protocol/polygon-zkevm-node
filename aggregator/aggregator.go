@@ -1036,6 +1036,19 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 			}
 		}()
 	} else {
+		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
+		log.Infof("GetFinalProofByMonitoredId: %s", monitoredTxID)
+		stateFinalProof, err := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
+		if err != nil && err != state.ErrNotFound {
+			log.Errorf("failed to read finalProof from table. err: %v", err)
+			return false, err
+		}
+
+		buildFinalProof := false
+		if err == state.ErrNotFound {
+			buildFinalProof = true
+		}
+
 		// we do have a proof generating at the moment, check if it is
 		// eligible to be verified
 		eligible, generate, err := a.validateEligibleFinalProof(ctx, proof, lastVerifiedBatchNum)
@@ -1045,19 +1058,25 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 
 		if !eligible {
 			if generate {
-				// at this point we have an eligible proof, build the final one using it
-				finalProof, err := a.buildFinalProof(ctx, prover, proof)
-				if err != nil {
-					err = fmt.Errorf("failed to build final proof, %v", err)
-					log.Error(FirstToUpper(err.Error()))
-					return false, err
-				}
+				if buildFinalProof {
+					// at this point we have an eligible proof, build the final one using it
+					finalProof, err := a.buildFinalProof(ctx, prover, proof)
+					if err != nil {
+						err = fmt.Errorf("failed to build final proof, %v", err)
+						log.Error(FirstToUpper(err.Error()))
+						return false, err
+					}
 
-				msg = finalProofMsg{
-					proverName:     proverName,
-					proverID:       proverID,
-					recursiveProof: proof,
-					finalProof:     finalProof,
+					msg = finalProofMsg{
+						proverName:     proverName,
+						proverID:       proverID,
+						recursiveProof: proof,
+						finalProof:     finalProof,
+					}
+				} else {
+					proof.ProofID = &stateFinalProof.FinalProofId
+					msg.recursiveProof = proof
+					msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
 				}
 
 				select {
@@ -1072,19 +1091,11 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 			return false, nil
 		}
 
-		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proof.BatchNumber, proof.BatchNumberFinal)
-		log.Infof("GetFinalProofByMonitoredId: %s", monitoredTxID)
-		stateFinalProof, err := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
-		if err != nil && err != state.ErrNotFound {
-			log.Errorf("failed to read finalProof from table. err: %v", err)
-			return false, err
-		}
-
 		log = log.WithFields(
 			"proofId", *proof.ProofID,
 			"batches", fmt.Sprintf("%d-%d", proof.BatchNumber, proof.BatchNumberFinal),
 		)
-		if err == state.ErrNotFound {
+		if buildFinalProof {
 			// at this point we have an eligible proof, build the final one using it
 			finalProof, err := a.buildFinalProof(ctx, prover, proof)
 			if err != nil {
