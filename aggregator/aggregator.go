@@ -325,6 +325,10 @@ func (a *Aggregator) resendProoHash() {
 			}
 
 			if firstProofHashBlockNumber == 0 {
+				if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
+					log.Error("failed to update monitored Proofhash tx id. monitoredProofhashTxID: %s, err: %v", monitoredProofhashTxID, err)
+					continue
+				}
 				break
 			}
 
@@ -348,44 +352,6 @@ func (a *Aggregator) resendProoHash() {
 				log.Error("failed to update monitored Proofhash tx id. monitoredProofhashTxID: %s, err: %v", monitoredProofhashTxID, err)
 				continue
 			}
-
-			// dbTx, err := a.State.BeginStateTransaction(a.ctx)
-			// if err != nil {
-			// 	log.Errorf("failed to begin state transaction for resend. err: %v", err)
-			// 	continue
-			// }
-			// log.Infof("resend proof hash tx begin. monitoredProofhashTxID: %d", monitoredProofhashTxID)
-			// resend, err := a.EthTxManager.AddReSendTx(a.ctx, monitoredProofhashTxID, dbTx)
-			// if err != nil {
-			// 	if err := dbTx.Rollback(a.ctx); err != nil {
-			// 		err := fmt.Errorf("failed to rollback resend: %v", err)
-			// 		log.Error(FirstToUpper(err.Error()))
-			// 		continue
-			// 	}
-			// 	log.Errorf("failed to release resend: %v", err)
-			// 	continue
-			// }
-
-			// err = dbTx.Commit(a.ctx)
-			// if err != nil {
-			// 	log.Errorf("failed to release state transaction for resend %v", err)
-			// 	continue
-			// }
-
-			// a.EthTxManager.ProcessPendingMonitoredTxs(a.ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
-			// 	if result.Status == ethtxmanager.MonitoredTxStatusFailed {
-			// 		resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
-			// 		resultLog.Error("failed to resend proof hash, TODO: review this fatal and define what to do in this case")
-			// 		if err := a.EthTxManager.UpdateId(a.ctx, result.ID, nil); err != nil {
-			// 			resultLog.Error(err)
-			// 		}
-			// 	}
-			// }, nil)
-			// if resend {
-			// 	go a.monitorSendProof(sequence.FromBatchNumber, sequence.ToBatchNumber, monitoredProofhashTxID)
-			// 	log.Infof("resend proof hash to opside chain. proofHashTxBlockNumber = %d, curBlockNumber = %d, monitoredProofhashTxID = %s", firstProofHashBlockNumber, curBlockNumber, monitoredProofhashTxID)
-			// }
-
 			log.Infof("resend proof hash tx end. monitoredProofhashTxID: %d", monitoredProofhashTxID)
 			tmp++
 		}
