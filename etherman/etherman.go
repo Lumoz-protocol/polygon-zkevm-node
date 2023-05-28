@@ -716,28 +716,9 @@ func (etherMan *Client) JudgeAggregatorDeposit(account common.Address) (bool, er
 	return true, nil
 }
 
-// GetSendSequenceFee get super/trusted sequencer fee
-func (etherMan *Client) GetSendSequenceFee(numBatches uint64) (*big.Int, error) {
-	f, err := etherMan.PoE.BatchFee(&bind.CallOpts{Pending: false})
-	if err != nil {
-		return nil, err
-	}
-	fee := new(big.Int).Mul(f, new(big.Int).SetUint64(numBatches))
-	return fee, nil
-}
-
 // TrustedSequencer gets trusted sequencer address
 func (etherMan *Client) TrustedSequencer() (common.Address, error) {
 	return etherMan.PoE.TrustedSequencer(&bind.CallOpts{Pending: false})
-}
-
-// TrustedAggregator gets trusted Aggregator address
-func (etherMan *Client) TrustedAggregator() (common.Address, error) {
-	return etherMan.PoE.TrustedAggregator(&bind.CallOpts{Pending: false})
-}
-
-func (etherMan *Client) BlockCommitBatchs(blockNumber uint64) (bool, error) {
-	return etherMan.PoE.BlockCommitBatchs(&bind.CallOpts{Pending: false}, big.NewInt(0).SetUint64(blockNumber))
 }
 
 func (etherMan *Client) forcedBatchEvent(ctx context.Context, vLog types.Log, blocks *[]Block, blocksOrder *map[common.Hash][]Order) error {
