@@ -777,7 +777,7 @@ func (a *Aggregator) monitorSendProof(batchNumber, batchNumberFinal uint64, moni
 			}
 
 			log.Infof("proofHashBlockNum = %d, max_commit_proof = %d, blockNumber =%d, monitoredTxID = %s", proofHashBlockNum, max_commit_proof, blockNumber, monitoredTxID)
-			if proofHashBlockNum+max_commit_proof > blockNumber {
+			if proofHashBlockNum == 0 || proofHashBlockNum+max_commit_proof > blockNumber {
 				continue
 			}
 
