@@ -474,6 +474,7 @@ func (a *Aggregator) sendFinalProofHash() {
 	finalProofMsgs := make(finalProofMsgList, 0)
 	tick := time.NewTicker(time.Second * 1)
 	blockNumber := uint64(0)
+	commitProoHashBatchNum := uint64(0)
 	for {
 		select {
 		case <-a.ctx.Done():
@@ -497,7 +498,9 @@ func (a *Aggregator) sendFinalProofHash() {
 				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
 				continue
 			}
-
+			if commitProoHashBatchNum <= lastVerifiedEthBatchNum {
+				commitProoHashBatchNum = lastVerifiedEthBatchNum
+			}
 			if finalProofMsgs.Len() > 0 {
 				curBlockNumber, err := a.Ethman.GetLatestBlockNumber(a.ctx)
 				log.Infof("curBlockNumber : %d", curBlockNumber)
@@ -515,8 +518,8 @@ func (a *Aggregator) sendFinalProofHash() {
 
 				lock.Lock()
 				msg := finalProofMsgs[0]
-				if (lastVerifiedEthBatchNum + 1) != msg.recursiveProof.BatchNumber {
-					if lastVerifiedEthBatchNum == msg.recursiveProof.BatchNumberFinal {
+				if (commitProoHashBatchNum + 1) != msg.recursiveProof.BatchNumber {
+					if commitProoHashBatchNum == msg.recursiveProof.BatchNumberFinal {
 						if finalProofMsgs.Len() > 1 {
 							finalProofMsgs = finalProofMsgs[1:]
 						} else {
@@ -524,7 +527,7 @@ func (a *Aggregator) sendFinalProofHash() {
 						}
 					}
 
-					log.Debugf("wait commit . current need commit proof init hash batch num. %d, commiing: %d", lastVerifiedEthBatchNum, msg.recursiveProof.BatchNumber)
+					log.Debugf("wait commit . current need commit proof init hash batch num. %d, commiing: %d", commitProoHashBatchNum, msg.recursiveProof.BatchNumber)
 					lock.Unlock()
 					continue
 				}
@@ -559,27 +562,6 @@ func (a *Aggregator) sendFinalProofHash() {
 					log.Errorf("Failed to retrieve batch with number [%d]: %v", proof.BatchNumberFinal, err)
 					a.endProofHash()
 					continue
-				}
-
-				proofHashBlockNum, err := a.Ethman.GetSequencedBatch(proof.BatchNumberFinal)
-				if err != nil {
-					log.Errorf("failed to get block number for first proof hash")
-					continue
-				}
-				if proofHashBlockNum > 0 {
-					block, err := a.State.GetLastBlock(a.ctx, nil)
-					if err != nil {
-						log.Errorf("Error get last block: %v", err)
-						a.endProofHash()
-						a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
-						continue
-					}
-
-					if (block.BlockNumber-proofHashBlockNum) > max_commit_proof && (block.BlockNumber-proofHashBlockNum) <= 2*max_commit_proof {
-						log.Debugf("not cant sender proof hash. proofHashBlockNum: %d, current block number", proofHashBlockNum, block.BlockNumber)
-						a.endProofHash()
-						continue
-					}
 				}
 
 				// query
@@ -633,6 +615,7 @@ func (a *Aggregator) sendFinalProofHash() {
 
 				a.resetVerifyProofHashTime()
 				a.endProofHash()
+				commitProoHashBatchNum++
 
 				go a.monitorSendProof(proof.BatchNumber, proof.BatchNumberFinal, monitoredTxID)
 			}
