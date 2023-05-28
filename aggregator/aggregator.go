@@ -525,7 +525,6 @@ func (a *Aggregator) sendFinalProof() {
 			lock.Unlock()
 
 		case <-tick.C:
-			sort.Sort(finalProofMsgs)
 			lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
 			if err != nil {
 				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
@@ -559,6 +558,7 @@ func (a *Aggregator) sendFinalProof() {
 							finalProofMsgs = make(finalProofMsgList, 0)
 						}
 					}
+
 					log.Debugf("wait commit . current need commit proof init hash batch num. %d, commiing: %d", commitProoHashBatchNum, msg.recursiveProof.BatchNumber)
 					lock.Unlock()
 					continue
