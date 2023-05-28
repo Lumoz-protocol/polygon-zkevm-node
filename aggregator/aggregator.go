@@ -329,7 +329,7 @@ func (a *Aggregator) resendProoHash() {
 					log.Error("failed to update monitored Proofhash tx id. monitoredProofhashTxID: %s, err: %v", monitoredProofhashTxID, err)
 					continue
 				}
-				break
+				continue
 			}
 
 			log.Infof("proofHashTxBlockNumber : %v, monitoredTxID: %s", firstProofHashBlockNumber, monitoredProofhashTxID)
