@@ -174,7 +174,6 @@ func (a *Aggregator) Start(ctx context.Context) error {
 	a.resetVerifyProofTime()
 
 	go a.cleanupLockedProofs()
-	go a.sendFinalProofHash()
 	go a.sendFinalProof()
 
 	<-ctx.Done()
