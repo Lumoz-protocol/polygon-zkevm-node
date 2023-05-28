@@ -498,9 +498,9 @@ func (a *Aggregator) sendFinalProofHash() {
 				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
 				continue
 			}
-			if commitProoHashBatchNum < lastVerifiedEthBatchNum {
-				commitProoHashBatchNum = lastVerifiedEthBatchNum
-			}
+			// if commitProoHashBatchNum < lastVerifiedEthBatchNum {
+			// 	commitProoHashBatchNum = lastVerifiedEthBatchNum
+			// }
 			if finalProofMsgs.Len() > 0 {
 				curBlockNumber, err := a.Ethman.GetLatestBlockNumber(a.ctx)
 				log.Infof("curBlockNumber : %d", curBlockNumber)
@@ -518,8 +518,8 @@ func (a *Aggregator) sendFinalProofHash() {
 
 				lock.Lock()
 				msg := finalProofMsgs[0]
-				if (commitProoHashBatchNum + 1) != msg.recursiveProof.BatchNumber {
-					if commitProoHashBatchNum == msg.recursiveProof.BatchNumberFinal {
+				if (lastVerifiedEthBatchNum + 1) != msg.recursiveProof.BatchNumber {
+					if lastVerifiedEthBatchNum == msg.recursiveProof.BatchNumberFinal {
 						if finalProofMsgs.Len() > 1 {
 							finalProofMsgs = finalProofMsgs[1:]
 						} else {
@@ -636,7 +636,7 @@ func (a *Aggregator) sendFinalProofHash() {
 
 				a.resetVerifyProofHashTime()
 				a.endProofHash()
-				commitProoHashBatchNum++
+				// commitProoHashBatchNum++
 
 				go a.monitorSendProof(proof.BatchNumber, proof.BatchNumberFinal, monitoredTxID)
 			}
