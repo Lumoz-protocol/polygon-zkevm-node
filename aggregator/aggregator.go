@@ -250,7 +250,7 @@ func (a *Aggregator) resendProoHash() {
 			continue
 		}
 
-		if blockNumber > 0 && (blockNumber+1) > curBlockNumber {
+		if (blockNumber + 1) > curBlockNumber {
 			time.Sleep(3 * time.Second)
 			continue
 		}
