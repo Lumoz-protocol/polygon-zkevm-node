@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/0xPolygonHermez/zkevm-node/log"
-	"github.com/0xPolygonHermez/zkevm-node/state"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -475,23 +474,25 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 
 		// if mined, check receipt and mark as Failed or Confirmed
 		if receipt.Status == types.ReceiptStatusSuccessful {
-			receiptBlockNum := receipt.BlockNumber.Uint64()
+			mTxLog.Info("confirmed")
+			mTx.status = MonitoredTxStatusConfirmed
+			// receiptBlockNum := receipt.BlockNumber.Uint64()
 
-			// check block synced
-			block, err := c.state.GetLastBlock(ctx, nil)
-			if errors.Is(err, state.ErrStateNotSynchronized) {
-				mTxLog.Debugf("state not synchronized yet, waiting for L1 block %v to be synced", receiptBlockNum)
-				continue
-			} else if err != nil {
-				mTxLog.Errorf("failed to check if L1 block %v is already synced: %v", receiptBlockNum, err)
-				continue
-			} else if block.BlockNumber < receiptBlockNum {
-				mTxLog.Debugf("L1 block %v not synchronized yet, waiting for L1 block to be synced in order to confirm monitored tx", receiptBlockNum)
-				continue
-			} else {
-				mTxLog.Info("confirmed")
-				mTx.status = MonitoredTxStatusConfirmed
-			}
+			// // check block synced
+			// block, err := c.state.GetLastBlock(ctx, nil)
+			// if errors.Is(err, state.ErrStateNotSynchronized) {
+			// 	mTxLog.Debugf("state not synchronized yet, waiting for L1 block %v to be synced", receiptBlockNum)
+			// 	continue
+			// } else if err != nil {
+			// 	mTxLog.Errorf("failed to check if L1 block %v is already synced: %v", receiptBlockNum, err)
+			// 	continue
+			// } else if block.BlockNumber < receiptBlockNum {
+			// 	mTxLog.Debugf("L1 block %v not synchronized yet, waiting for L1 block to be synced in order to confirm monitored tx", receiptBlockNum)
+			// 	continue
+			// } else {
+			// 	mTxLog.Info("confirmed")
+			// 	mTx.status = MonitoredTxStatusConfirmed
+			// }
 		} else {
 			// if we should continue to monitor, we move to the next one and this will
 			// be reviewed in the next monitoring cycle
