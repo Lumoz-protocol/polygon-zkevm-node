@@ -301,12 +301,13 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 		hasFailedReceipts := false
 		allHistoryTxMined := true
 		for txHash := range mTx.history {
+			log.Info(mTx.id)
 			mined, receipt, err = c.etherman.CheckTxWasMined(ctx, txHash)
 			if err != nil {
 				mTxLog.Errorf("failed to check if tx %v was mined: %v", txHash.String(), err)
 				continue
 			}
-
+			log.Info(mTx.id, mined, receipt.Status)
 			// if the tx is not mined yet, check that not all the tx were mined and go to the next
 			if !mined {
 				allHistoryTxMined = false
