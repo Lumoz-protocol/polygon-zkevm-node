@@ -214,7 +214,7 @@ func (a *Aggregator) sendGenarateFinalProof() {
 		a.monitoredProofHashTxLock.Unlock()
 		stateFinalProof, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 		if errFinalProof != nil {
-			break
+			continue
 		}
 
 		msg = finalProofMsg{}
