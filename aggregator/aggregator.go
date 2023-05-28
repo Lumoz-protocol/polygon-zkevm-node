@@ -603,7 +603,7 @@ func (a *Aggregator) sendFinalProof() {
 					continue
 				}
 
-				go a.EthTxManager.ProcessPendingMonitoredTxs(ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
+				a.EthTxManager.ProcessPendingMonitoredTxs(ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
 					if result.Status == ethtxmanager.MonitoredTxStatusFailed {
 						resultLog := log.WithFields("owner", ethTxManagerOwner, "id", result.ID)
 						resultLog.Error("failed to send proof hash, TODO: review this fatal and define what to do in this case")
