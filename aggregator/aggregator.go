@@ -1193,7 +1193,6 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 		}
 
 		log = log.WithFields(
-			"proofId", *proof.ProofID,
 			"batches", fmt.Sprintf("%d-%d", proof.BatchNumber, proof.BatchNumberFinal),
 		)
 		if buildFinalProof {
