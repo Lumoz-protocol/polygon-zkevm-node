@@ -325,7 +325,7 @@ func (a *Aggregator) resendProoHash() {
 			}
 
 			if firstProofHashBlockNumber == 0 {
-				continue
+				break
 			}
 
 			log.Infof("proofHashTxBlockNumber : %v, monitoredTxID: %s", firstProofHashBlockNumber, monitoredProofhashTxID)
