@@ -335,12 +335,13 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 		// in case of all tx were mined and none of them were mined successfully, we need to
 		// review the nonce
 		if hasFailedReceipts && allHistoryTxMined {
-			mTxLog.Infof("nonce needs to be updated")
-			err := c.ReviewMonitoredTxNonce(ctx, &mTx)
-			if err != nil {
-				mTxLog.Errorf("failed to review monitored tx nonce: %v", err)
-				continue
-			}
+			// mTxLog.Infof("nonce needs to be updated")
+			// err := c.ReviewMonitoredTxNonce(ctx, &mTx)
+			// if err != nil {
+			// 	mTxLog.Errorf("failed to review monitored tx nonce: %v", err)
+			// 	continue
+			// }
+			mTx.status = MonitoredTxStatusFailed
 			err = c.storage.Update(ctx, mTx, nil)
 			if err != nil {
 				mTxLog.Errorf("failed to update monitored tx nonce change: %v", err)
