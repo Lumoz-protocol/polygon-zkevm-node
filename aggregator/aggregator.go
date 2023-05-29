@@ -518,7 +518,7 @@ func (a *Aggregator) sendFinalProofHash() {
 				lock.Lock()
 				msg := finalProofMsgs[0]
 				if (commitProoHashBatchNum + 1) != msg.recursiveProof.BatchNumber {
-					if commitProoHashBatchNum >= msg.recursiveProof.BatchNumberFinal {
+					if commitProoHashBatchNum >= msg.recursiveProof.BatchNumberFinal || commitProoHashBatchNum <= msg.recursiveProof.BatchNumber {
 						if finalProofMsgs.Len() > 1 {
 							finalProofMsgs = finalProofMsgs[1:]
 						} else {
