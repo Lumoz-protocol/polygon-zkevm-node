@@ -844,7 +844,6 @@ func (a *Aggregator) buildFinalProof(ctx context.Context, prover proverInterface
 		"prover", prover.Name(),
 		"proverId", prover.ID(),
 		"proverAddr", prover.Addr(),
-		"recursiveProofId", *proof.ProofID,
 		"batches", fmt.Sprintf("%d-%d", proof.BatchNumber, proof.BatchNumberFinal),
 	)
 	log.Info("Generating final proof")
