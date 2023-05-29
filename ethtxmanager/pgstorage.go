@@ -212,7 +212,7 @@ func (s *PostgresStorage) UpdateFailedID(ctx context.Context, mTxSrcID, mTxDescI
 	conn := s.dbConn(dbTx)
 	cmd := `
         UPDATE state.monitored_txs
-           SET id = $2, status = 'failed_done' updated_at = $3
+           SET id = $2, status = 'failed_done', updated_at = $3
          WHERE id = $1`
 
 	_, err := conn.Exec(ctx, cmd, mTxSrcID, mTxDescID, time.Now().UTC().Round(time.Microsecond))

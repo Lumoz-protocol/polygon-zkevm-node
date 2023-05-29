@@ -1770,16 +1770,60 @@ func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResu
 		}
 		stateFinalProof, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 		if errFinalProof == nil {
-			msg := finalProofMsg{}
-			proof := &state.Proof{
-				BatchNumber:      proofBatchNumber,
-				BatchNumberFinal: proofBatchNumberFinal,
-				ProofID:          &stateFinalProof.FinalProofId,
+			// 获取当前区块，判断是否超时，超时重发hash，否是重发proof
+			// 获取存入的高度
+			// 获取当前高度
+			// 比较
+			// 获取hash
+			lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
+			if err != nil {
+				log.Warnf("Failed to get last eth batch on monitorSendProof, err: %v", err)
+				return
 			}
-			msg.recursiveProof = proof
-			msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
 
-			a.finalProof <- msg
+			if (lastVerifiedEthBatchNum + 1) != proofBatchNumber {
+				log.Debugf("lastVerifiedEthBatchNum: %d, proofBatchNumber: %d", lastVerifiedEthBatchNum, proofBatchNumber)
+				return
+			}
+
+			proofHashBlockNum, err := a.Ethman.GetSequencedBatch(proofBatchNumberFinal)
+			if err != nil {
+				log.Errorf("failed to get block number for first proof hash")
+				return
+			}
+
+			blockNumber, err := a.Ethman.GetLatestBlockNumber(a.ctx)
+			if err != nil {
+				log.Errorf("Failed get last block by jsonrpc: %v", err)
+				return
+			}
+
+			if proofHashBlockNum == 0 || (proofHashBlockNum+max_commit_proof*2-2) < blockNumber {
+				msg := finalProofMsg{}
+				proof := &state.Proof{
+					BatchNumber:      proofBatchNumber,
+					BatchNumberFinal: proofBatchNumberFinal,
+					ProofID:          &stateFinalProof.FinalProofId,
+				}
+				msg.recursiveProof = proof
+				msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
+
+				a.finalProof <- msg
+			} else {
+				a.txsMutex.Lock()
+				a.txs[monitoredTxID] = true
+				a.txsMutex.Unlock()
+				sha3 := solsha3.SoliditySHA3(stateFinalProof.FinalProof)
+				pack := solsha3.Pack([]string{"string", "address"}, []interface{}{
+					sha3,
+					common.HexToAddress(a.cfg.SenderAddress),
+				})
+
+				hash := crypto.Keccak256Hash(pack)
+
+				a.proofHashCH <- proofHash{hash.Hex(), proofBatchNumberFinal, monitoredTxID}
+			}
+
 		}
 		return
 	}
