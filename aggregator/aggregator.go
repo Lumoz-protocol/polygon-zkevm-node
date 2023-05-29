@@ -692,6 +692,7 @@ func (a *Aggregator) sendFinalProof() {
 				log.Errorf("Error estimating batch verification to add to eth tx manager: %v", err)
 				//a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
 				a.endProofVerification()
+				a.proofHashCH <- proofHash
 				continue
 			}
 
@@ -701,6 +702,7 @@ func (a *Aggregator) sendFinalProof() {
 				log := log.WithFields("tx", monitoredTxID)
 				log.Errorf("Error to add batch verification tx to eth tx manager: %v", err)
 				a.endProofVerification()
+				a.proofHashCH <- proofHash
 				continue
 			}
 
