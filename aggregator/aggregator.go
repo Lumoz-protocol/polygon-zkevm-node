@@ -1749,9 +1749,6 @@ func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResu
 		}
 		// monitoredIDFormat: "proof-from-%v-to-%v"
 		idSlice := strings.Split(result.ID, "-")
-		if len(idSlice) == 6 {
-			return
-		}
 		proofBatchNumberStr := idSlice[2]
 
 		proofBatchNumber, err := strconv.ParseUint(proofBatchNumberStr, encoding.Base10, 0)

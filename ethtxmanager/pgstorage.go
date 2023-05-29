@@ -208,6 +208,22 @@ func (s *PostgresStorage) UpdateID(ctx context.Context, mTxSrcID, mTxDescID stri
 	return nil
 }
 
+func (s *PostgresStorage) UpdateFailedID(ctx context.Context, mTxSrcID, mTxDescID string, dbTx pgx.Tx) error {
+	conn := s.dbConn(dbTx)
+	cmd := `
+        UPDATE state.monitored_txs
+           SET id = $2, status = 'failed_done' updated_at = $3
+         WHERE id = $1`
+
+	_, err := conn.Exec(ctx, cmd, mTxSrcID, mTxDescID, time.Now().UTC().Round(time.Microsecond))
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Update a persisted monitored tx
 func (s *PostgresStorage) Update(ctx context.Context, mTx monitoredTx, dbTx pgx.Tx) error {
 	conn := s.dbConn(dbTx)

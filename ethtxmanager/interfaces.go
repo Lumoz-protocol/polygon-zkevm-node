@@ -32,6 +32,7 @@ type storageInterface interface {
 	GetByBlock(ctx context.Context, fromBlock, toBlock *uint64, dbTx pgx.Tx) ([]monitoredTx, error)
 	Update(ctx context.Context, mTx monitoredTx, dbTx pgx.Tx) error
 	UpdateID(ctx context.Context, mTxSrcID, mTxDescID string, dbTx pgx.Tx) error
+	UpdateFailedID(ctx context.Context, mTxSrcID, mTxDescID string, dbTx pgx.Tx) error
 }
 
 type stateInterface interface {

@@ -143,6 +143,10 @@ func (c *Client) UpdateId(ctx context.Context, id string, dbTx pgx.Tx) error {
 	}
 
 	dest := fmt.Sprintf("old-%d-%s", tx.createdAt.Unix(), id)
+	if tx.status == MonitoredTxStatusFailed {
+		return c.storage.UpdateFailedID(ctx, id, dest, dbTx)
+	}
+
 	return c.storage.UpdateID(ctx, id, dest, dbTx)
 }
 
@@ -335,13 +339,13 @@ func (c *Client) monitorTxs(ctx context.Context) error {
 		// in case of all tx were mined and none of them were mined successfully, we need to
 		// review the nonce
 		if hasFailedReceipts && allHistoryTxMined {
-			mTxLog.Infof("nonce needs to be updated")
-			err := c.ReviewMonitoredTxNonce(ctx, &mTx)
-			if err != nil {
-				mTxLog.Errorf("failed to review monitored tx nonce: %v", err)
-				continue
-			}
-			// mTx.status = MonitoredTxStatusFailed
+			// mTxLog.Infof("nonce needs to be updated")
+			// err := c.ReviewMonitoredTxNonce(ctx, &mTx)
+			// if err != nil {
+			// 	mTxLog.Errorf("failed to review monitored tx nonce: %v", err)
+			// 	continue
+			// }
+			mTx.status = MonitoredTxStatusFailed
 			err = c.storage.Update(ctx, mTx, nil)
 			if err != nil {
 				mTxLog.Errorf("failed to update monitored tx nonce change: %v", err)
