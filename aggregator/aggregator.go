@@ -347,8 +347,8 @@ func (a *Aggregator) resendProoHash() {
 					a.monitoredProofHashTxLock.Lock()
 					if _, ok := a.monitoredProofHashTx[monitoredProofhashTxID]; !ok {
 						a.monitoredProofHashTx[monitoredProofhashTxID] = true
-						go a.monitorSendProof(sequence.FromBatchNumber, sequence.ToBatchNumber, monitoredProofhashTxID)
 					}
+					go a.monitorSendProof(sequence.FromBatchNumber, sequence.ToBatchNumber, monitoredProofhashTxID)
 					a.monitoredProofHashTxLock.Unlock()
 				}
 				log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", firstProofHashBlockNumber, curBlockNumber)
@@ -482,6 +482,7 @@ func (a *Aggregator) sendFinalProof() {
 	tick := time.NewTicker(time.Second * 1)
 	blockNumber := uint64(0)
 	commitProoHashBatchNum := uint64(0)
+	monitoredProofHashTx := make(map[uint64]bool, 0)
 	for {
 		select {
 		case <-a.ctx.Done():
@@ -495,14 +496,13 @@ func (a *Aggregator) sendFinalProof() {
 			if msg.recursiveProof.BatchNumberFinal <= lastVerifiedEthBatchNum {
 				continue
 			}
-			a.monitoredProofHashTxLock.Lock()
-			monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, msg.recursiveProof.BatchNumber, msg.recursiveProof.BatchNumberFinal)
-			if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
-				a.monitoredProofHashTxLock.Unlock()
+
+			lock.Lock()
+			if _, ok := monitoredProofHashTx[msg.recursiveProof.BatchNumberFinal]; ok {
+				lock.Unlock()
 				continue
 			}
-			a.monitoredProofHashTxLock.Unlock()
-			lock.Lock()
+			monitoredProofHashTx[msg.recursiveProof.BatchNumberFinal] = true
 			finalProofMsgs = append(finalProofMsgs, msg)
 			sort.Sort(finalProofMsgs)
 			lock.Unlock()
@@ -523,6 +523,7 @@ func (a *Aggregator) sendFinalProof() {
 					} else {
 						finalProofMsgs = make(finalProofMsgList, 0)
 					}
+					delete(monitoredProofHashTx, msg.recursiveProof.BatchNumberFinal)
 				}
 
 				log.Debugf("delete from finalProofMsgs. lastVerifiedEthBatchNum: %d, msg.recursiveProof.BatchNumberFinal: %d, finalProofMsgs size: %d", lastVerifiedEthBatchNum, msg.recursiveProof.BatchNumberFinal, len(finalProofMsgs))
@@ -744,6 +745,10 @@ func (a *Aggregator) sendFinalProof() {
 			a.txsMutex.Lock()
 			delete(a.txs, proofHash.monitoredProofHashTxID)
 			a.txsMutex.Unlock()
+
+			lock.Lock()
+			delete(monitoredProofHashTx, proverProof.FinalNewBatch)
+			lock.Unlock()
 
 			a.monitoredProofHashTxLock.Lock()
 			if b, ok := a.monitoredProofHashTx[proofHash.monitoredProofHashTxID]; ok && b {
