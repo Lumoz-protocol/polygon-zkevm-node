@@ -1013,7 +1013,7 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 			proof, err = a.getAndLockProofReadyToVerify(ctx, prover, batchNum)
 			if errors.Is(err, state.ErrNotFound) {
 				// nothing to verify, swallow the error
-				a.buildFinalProofBatchNum = proof.BatchNumberFinal
+				a.buildFinalProofBatchNum = 0
 				// log.Debugf("No proof ready to verify. lastVerifiedBatchNum: %d", lastVerifiedBatchNum)
 				log.Debugf("No proof ready to verify. batchNum: %d", batchNum)
 				a.buildFinalProofBatchNumMutex.Unlock()
