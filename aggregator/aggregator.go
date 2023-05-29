@@ -938,33 +938,37 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 
 	if proof == nil {
 		sequence, err := a.State.GetSequence(a.ctx, lastVerifiedBatchNum+1, nil)
-		if err != nil && err != state.ErrStateNotSynchronized {
+		if err != nil {
 			log.Warnf("failed to get sequence. err: %v", err)
 			return false, err
 		}
+		// 增加一个判断，判断是否在处理中，在的话 就
 		var stateFinalProof *state.FinalProof
 		var errFinalProof error
-		if err == nil {
-			monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
-			stateFinalProof, errFinalProof = a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
-			if errFinalProof == nil {
-				msg = finalProofMsg{
-					proverName: proverName,
-					proverID:   proverID,
-				}
-				proof = &state.Proof{
-					BatchNumber:      sequence.FromBatchNumber,
-					BatchNumberFinal: sequence.ToBatchNumber,
-					ProofID:          &stateFinalProof.FinalProofId,
-				}
-				msg.recursiveProof = proof
-				msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
+		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, sequence.FromBatchNumber, sequence.ToBatchNumber)
+		stateFinalProof, errFinalProof = a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
+		if errFinalProof == nil {
+			msg = finalProofMsg{
+				proverName: proverName,
+				proverID:   proverID,
 			}
-
-		}
-		if errFinalProof != nil {
+			proof = &state.Proof{
+				BatchNumber:      sequence.FromBatchNumber,
+				BatchNumberFinal: sequence.ToBatchNumber,
+				ProofID:          &stateFinalProof.FinalProofId,
+			}
+			msg.recursiveProof = proof
+			msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
+		} else {
 			a.buildFinalProofBatchNumMutex.Lock()
 			batchNum := a.buildFinalProofBatchNum
+			_, err := a.State.GetSequence(a.ctx, lastVerifiedBatchNum+1, nil)
+			if err != nil {
+				a.buildFinalProofBatchNum = lastVerifiedBatchNum
+				a.buildFinalProofBatchNumMutex.Unlock()
+				log.Warnf("failed to get sequence. err: %v", err)
+				return false, err
+			}
 			if a.buildFinalProofBatchNum <= lastVerifiedBatchNum {
 				batchNum = lastVerifiedBatchNum
 			}
@@ -974,7 +978,7 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 			proof, err = a.getAndLockProofReadyToVerify(ctx, prover, batchNum)
 			if errors.Is(err, state.ErrNotFound) {
 				// nothing to verify, swallow the error
-				a.buildFinalProofBatchNum = 0
+				a.buildFinalProofBatchNum = proof.BatchNumberFinal
 				// log.Debugf("No proof ready to verify. lastVerifiedBatchNum: %d", lastVerifiedBatchNum)
 				log.Debugf("No proof ready to verify. batchNum: %d", batchNum)
 				a.buildFinalProofBatchNumMutex.Unlock()
