@@ -52,8 +52,9 @@ type finalProofMsg struct {
 }
 
 type proofHash struct {
-	hash             string
-	batchNumberFinal uint64
+	hash                   string
+	batchNumberFinal       uint64
+	monitoredProofHashTxID string
 }
 
 // Aggregator represents an aggregator
@@ -87,6 +88,8 @@ type Aggregator struct {
 
 	monitoredProofHashTxLock *sync.Mutex
 	monitoredProofHashTx     map[string]bool
+	txsMutex                 *sync.Mutex
+	txs                      map[string]bool
 }
 
 // New creates a new aggregator.
@@ -121,6 +124,9 @@ func New(
 		proofHashCH:              make(chan proofHash, 10240),
 		monitoredProofHashTxLock: &sync.Mutex{},
 		monitoredProofHashTx:     make(map[string]bool),
+
+		txsMutex: &sync.Mutex{},
+		txs:      make(map[string]bool, 0),
 	}
 
 	return a, nil
@@ -495,6 +501,10 @@ func (a *Aggregator) sendFinalProof() {
 			lock.Unlock()
 
 		case <-tick.C:
+			if len(a.txs) > 0 {
+				log.Infof("wait send proof tx. txs size: %d", len(a.txs))
+				continue
+			}
 			lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
 			if err != nil {
 				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
@@ -701,10 +711,13 @@ func (a *Aggregator) sendFinalProof() {
 
 			a.resetVerifyProofTime()
 			a.endProofVerification()
+			a.txsMutex.Lock()
+			delete(a.txs, proofHash.monitoredProofHashTxID)
+			a.txsMutex.Unlock()
 
 			a.monitoredProofHashTxLock.Lock()
-			if b, ok := a.monitoredProofHashTx[monitoredTxID]; ok && b {
-				delete(a.monitoredProofHashTx, monitoredTxID)
+			if b, ok := a.monitoredProofHashTx[proofHash.monitoredProofHashTxID]; ok && b {
+				delete(a.monitoredProofHashTx, proofHash.monitoredProofHashTxID)
 			}
 			a.monitoredProofHashTxLock.Unlock()
 
@@ -805,8 +818,11 @@ func (a *Aggregator) monitorSendProof(batchNumber, batchNumberFinal uint64, moni
 				log.Debugf("Failed get proof hash in monitorSendProof: %v, batchNumberFinal: %d", err, batchNumberFinal)
 				continue
 			}
+			a.txsMutex.Lock()
+			a.txs[monitoredTxID] = true
+			a.txsMutex.Unlock()
 			log.Infof("build proof tx. hash: %s, batchNumberFinal: %d, monitoredTxID = %s", hash, batchNumberFinal, monitoredTxID)
-			a.proofHashCH <- proofHash{hash, batchNumberFinal}
+			a.proofHashCH <- proofHash{hash, batchNumberFinal, monitoredTxID}
 			return
 		}
 	}
