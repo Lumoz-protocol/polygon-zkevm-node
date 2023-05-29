@@ -721,7 +721,21 @@ func (a *Aggregator) sendFinalProof() {
 				log := log.WithFields("tx", monitoredTxID)
 				log.Errorf("Error to add batch verification tx to eth tx manager: %v", err)
 				a.endProofVerification()
-				a.proofHashCH <- proofHash
+				a.resetVerifyProofTime()
+				a.txsMutex.Lock()
+				delete(a.txs, proofHash.monitoredProofHashTxID)
+				a.txsMutex.Unlock()
+
+				lock.Lock()
+				delete(monitoredProofHashTx, proverProof.FinalNewBatch)
+				lock.Unlock()
+
+				a.monitoredProofHashTxLock.Lock()
+				if b, ok := a.monitoredProofHashTx[proofHash.monitoredProofHashTxID]; ok && b {
+					delete(a.monitoredProofHashTx, proofHash.monitoredProofHashTxID)
+				}
+				a.monitoredProofHashTxLock.Unlock()
+
 				continue
 			}
 
@@ -1749,11 +1763,6 @@ func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResu
 		}
 		stateFinalProof, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 		if errFinalProof == nil {
-			// 获取当前区块，判断是否超时，超时重发hash，否是重发proof
-			// 获取存入的高度
-			// 获取当前高度
-			// 比较
-			// 获取hash
 			lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
 			if err != nil {
 				log.Warnf("Failed to get last eth batch on monitorSendProof, err: %v", err)
