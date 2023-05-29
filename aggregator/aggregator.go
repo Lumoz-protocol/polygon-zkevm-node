@@ -320,7 +320,7 @@ func (a *Aggregator) resendProoHash() {
 				}
 			}
 
-			_, _, err = a.State.GetTxBlockNum(a.ctx, monitoredProofhashTxID, nil)
+			_, status, err = a.State.GetTxBlockNum(a.ctx, monitoredProofhashTxID, nil)
 			if err != nil {
 				log.Debugf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredProofhashTxID, err)
 				tmp = sequence.ToBatchNumber
@@ -334,9 +334,10 @@ func (a *Aggregator) resendProoHash() {
 			}
 
 			if firstProofHashBlockNumber == 0 {
-				if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
-					log.Debugf("failed to update monitored Proofhash tx id. monitoredProofhashTxID: %s, err: %v", monitoredProofhashTxID, err)
-					continue
+				if status == ethtxmanager.MonitoredTxStatusFailed.String() {
+					if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofhashTxID, nil); err != nil {
+						log.Debugf("failed to update monitored Proofhash tx id. monitoredProofhashTxID: %s, err: %v", monitoredProofhashTxID, err)
+					}
 				}
 				continue
 			}
