@@ -608,6 +608,10 @@ func (a *Aggregator) sendFinalProof() {
 					delete(a.txs, monitoredTxID)
 					a.txsMutex.Unlock()
 
+					lock.Lock()
+					delete(monitoredProofHashTx, proof.BatchNumberFinal)
+					lock.Unlock()
+
 					a.monitoredProofHashTxLock.Lock()
 					if b, ok := a.monitoredProofHashTx[monitoredTxID]; ok && b {
 						delete(a.monitoredProofHashTx, monitoredTxID)
