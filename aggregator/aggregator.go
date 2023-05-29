@@ -352,7 +352,7 @@ func (a *Aggregator) resendProoHash() {
 				log.Error("failed to update monitored Proofhash tx id. monitoredProofhashTxID: %s, err: %v", monitoredProofhashTxID, err)
 				continue
 			}
-			log.Infof("resend proof hash tx end. monitoredProofhashTxID: %d", monitoredProofhashTxID)
+			log.Infof("resend proof hash tx end. monitoredProofhashTxID: %s", monitoredProofhashTxID)
 			tmp++
 		}
 
@@ -497,6 +497,7 @@ func (a *Aggregator) sendFinalProof() {
 				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
 				continue
 			}
+
 			if commitProoHashBatchNum <= lastVerifiedEthBatchNum {
 				commitProoHashBatchNum = lastVerifiedEthBatchNum
 			}
@@ -615,7 +616,7 @@ func (a *Aggregator) sendFinalProof() {
 
 				a.resetVerifyProofHashTime()
 				a.endProofHash()
-				commitProoHashBatchNum++
+				commitProoHashBatchNum = msg.recursiveProof.BatchNumberFinal
 
 				go a.monitorSendProof(proof.BatchNumber, proof.BatchNumberFinal, monitoredTxID)
 			}
