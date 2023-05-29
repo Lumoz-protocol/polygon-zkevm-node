@@ -602,7 +602,7 @@ func (a *Aggregator) sendFinalProof() {
 				if err != nil {
 					log.Errorf("Error estimating proof hash to add to eth tx manager: %v", err)
 					a.endProofHash()
-					a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
+					// a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
 					continue
 				}
 
@@ -613,7 +613,16 @@ func (a *Aggregator) sendFinalProof() {
 					log.Errorf("Error to add batch verification tx to eth tx manager: %v", err)
 
 					a.endProofHash()
-					a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
+					a.txsMutex.Lock()
+					delete(a.txs, monitoredTxID)
+					a.txsMutex.Unlock()
+
+					a.monitoredProofHashTxLock.Lock()
+					if b, ok := a.monitoredProofHashTx[monitoredTxID]; ok && b {
+						delete(a.monitoredProofHashTx, monitoredTxID)
+					}
+					a.monitoredProofHashTxLock.Unlock()
+					// a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
 					continue
 				}
 
@@ -671,7 +680,7 @@ func (a *Aggregator) sendFinalProof() {
 						log := log.WithFields("tx", monitoredTxID)
 						log.Errorf("Error to add prover proof to db: %v", err)
 						a.endProofHash()
-						a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
+						// a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
 						continue
 					}
 				}
