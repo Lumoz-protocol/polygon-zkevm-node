@@ -300,13 +300,14 @@ func (a *Aggregator) resendProoHash() {
 			}
 
 			if err == nil && status != string(ethtxmanager.MonitoredTxStatusFailed) {
-				tmp++
+				tmp = sequence.ToBatchNumber
 				continue
 			}
 
 			if err == nil {
 				if err := a.EthTxManager.UpdateId(a.ctx, monitoredProofTxID, nil); err != nil {
 					log.Errorf("failed to update monitoted tx id. err: %v. monitoredProofTxID: %s", err, monitoredProofTxID)
+					tmp = sequence.ToBatchNumber
 					continue
 				}
 			}
@@ -314,7 +315,7 @@ func (a *Aggregator) resendProoHash() {
 			_, _, err = a.State.GetTxBlockNum(a.ctx, monitoredProofhashTxID, nil)
 			if err != nil {
 				log.Errorf("failed to get tx block number. monitoredTxID = %s, err = %v", monitoredProofhashTxID, err)
-				tmp++
+				tmp = sequence.ToBatchNumber
 				continue
 			}
 
@@ -344,7 +345,7 @@ func (a *Aggregator) resendProoHash() {
 					a.monitoredProofHashTxLock.Unlock()
 				}
 				log.Debugf("no resend. proofHashTxBlockNumber = %d, curBlockNumber = %d", firstProofHashBlockNumber, curBlockNumber)
-				tmp++
+				tmp = sequence.ToBatchNumber
 				continue
 			}
 
@@ -353,7 +354,7 @@ func (a *Aggregator) resendProoHash() {
 				continue
 			}
 			log.Infof("resend proof hash tx end. monitoredProofhashTxID: %s", monitoredProofhashTxID)
-			tmp++
+			tmp = sequence.ToBatchNumber
 		}
 
 		a.sendGenarateFinalProof()
