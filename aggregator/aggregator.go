@@ -487,6 +487,14 @@ func (a *Aggregator) sendFinalProof() {
 		case <-a.ctx.Done():
 			return
 		case msg := <-a.finalProof:
+			lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
+			if err != nil {
+				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
+				continue
+			}
+			if msg.recursiveProof.BatchNumberFinal <= lastVerifiedEthBatchNum {
+				continue
+			}
 			a.monitoredProofHashTxLock.Lock()
 			monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, msg.recursiveProof.BatchNumber, msg.recursiveProof.BatchNumberFinal)
 			if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
@@ -500,13 +508,25 @@ func (a *Aggregator) sendFinalProof() {
 			lock.Unlock()
 
 		case <-tick.C:
-			if len(a.txs) > 0 {
-				log.Infof("wait send proof tx. txs size: %d", len(a.txs))
-				continue
-			}
 			lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
 			if err != nil {
 				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
+				continue
+			}
+			if len(a.txs) > 0 {
+				log.Infof("wait send proof tx. txs size: %d, finalProofMsgs size: %d", len(a.txs), len(finalProofMsgs))
+				lock.Lock()
+				msg := finalProofMsgs[0]
+				if lastVerifiedEthBatchNum >= msg.recursiveProof.BatchNumberFinal {
+					if finalProofMsgs.Len() > 1 {
+						finalProofMsgs = finalProofMsgs[1:]
+					} else {
+						finalProofMsgs = make(finalProofMsgList, 0)
+					}
+				}
+
+				log.Debugf("delete from finalProofMsgs. lastVerifiedEthBatchNum: %d, msg.recursiveProof.BatchNumberFinal: %d, finalProofMsgs size: %d", lastVerifiedEthBatchNum, msg.recursiveProof.BatchNumberFinal, len(finalProofMsgs))
+				lock.Unlock()
 				continue
 			}
 
