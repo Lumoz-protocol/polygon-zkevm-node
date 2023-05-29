@@ -276,8 +276,7 @@ func (a *Aggregator) resendProoHash() {
 			initBlockNumber = curBlockNumber
 			initLastBatchNum = lastVerifiedEthBatchNum
 		}
-		// if currentVerifyBatchNum  == lastVerifiedEthBatchNum {}
-		// currentVerifyBatchNum = lastVerifiedEthBatchNum
+
 		for {
 			sequence, err := a.State.GetSequence(a.ctx, tmp+1, nil)
 			if err != nil {
@@ -291,7 +290,7 @@ func (a *Aggregator) resendProoHash() {
 
 			if lastBatchNum > 0 && lastBatchNum > sequence.ToBatchNumber {
 				if curBlockNumber-initBlockNumber <= 20 {
-					continue
+					break
 				}
 			}
 
