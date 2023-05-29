@@ -595,6 +595,36 @@ func (a *Aggregator) sendFinalProof() {
 						if err := a.EthTxManager.UpdateId(a.ctx, result.ID, nil); err != nil {
 							resultLog.Error(err)
 						}
+
+						stateFinalProof, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, result.ID, nil)
+						if errFinalProof == nil {
+							// monitoredIDFormat: "proof-hash-from-%v-to-%v"
+							idSlice := strings.Split(result.ID, "-")
+							proofBatchNumberStr := idSlice[3]
+							proofBatchNumber, err := strconv.ParseUint(proofBatchNumberStr, encoding.Base10, 0)
+							if err != nil {
+								log.Errorf("failed to read final proof batch number from monitored tx: %v", err)
+								return
+							}
+
+							proofBatchNumberFinalStr := idSlice[5]
+							proofBatchNumberFinal, err := strconv.ParseUint(proofBatchNumberFinalStr, encoding.Base10, 0)
+							if err != nil {
+								log.Errorf("failed to read final proof batch number final from monitored tx: %v", err)
+								return
+							}
+
+							msg := finalProofMsg{}
+							proof := &state.Proof{
+								BatchNumber:      proofBatchNumber,
+								BatchNumberFinal: proofBatchNumberFinal,
+								ProofID:          &stateFinalProof.FinalProofId,
+							}
+							msg.recursiveProof = proof
+							msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
+
+							a.finalProof <- msg
+						}
 					}
 				}, nil)
 
@@ -1697,6 +1727,46 @@ func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResu
 		resLog.Error("failed to send batch verification, TODO: review this fatal and define what to do in this case")
 		if err := a.EthTxManager.UpdateId(a.ctx, result.ID, nil); err != nil {
 			resLog.Error(err)
+		}
+		if strings.Contains(result.ID, "proof-hash-from-") {
+			return
+		}
+		// monitoredIDFormat: "proof-from-%v-to-%v"
+		idSlice := strings.Split(result.ID, "-")
+		if len(idSlice) == 6 {
+			return
+		}
+		proofBatchNumberStr := idSlice[2]
+
+		proofBatchNumber, err := strconv.ParseUint(proofBatchNumberStr, encoding.Base10, 0)
+		if err != nil {
+			resLog.Errorf("failed to read final proof batch number from monitored tx: %v", err)
+			return
+		}
+
+		proofBatchNumberFinalStr := idSlice[4]
+		proofBatchNumberFinal, err := strconv.ParseUint(proofBatchNumberFinalStr, encoding.Base10, 0)
+		if err != nil {
+			resLog.Errorf("failed to read final proof batch number final from monitored tx: %v", err)
+			return
+		}
+
+		monitoredTxID := fmt.Sprintf(monitoredHashIDFormat, proofBatchNumber, proofBatchNumberFinal)
+		if err := a.EthTxManager.UpdateId(a.ctx, monitoredTxID, nil); err != nil {
+			resLog.Error(err)
+		}
+		stateFinalProof, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
+		if errFinalProof == nil {
+			msg := finalProofMsg{}
+			proof := &state.Proof{
+				BatchNumber:      proofBatchNumber,
+				BatchNumberFinal: proofBatchNumberFinal,
+				ProofID:          &stateFinalProof.FinalProofId,
+			}
+			msg.recursiveProof = proof
+			msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
+
+			a.finalProof <- msg
 		}
 		return
 	}
