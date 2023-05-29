@@ -485,30 +485,59 @@ func (a *Aggregator) sendFinalProof() {
 	blockNumber := uint64(0)
 	commitProoHashBatchNum := uint64(0)
 	monitoredProofHashTx := make(map[uint64]bool, 0)
+	go func() {
+		for {
+			select {
+			case <-a.ctx.Done():
+				return
+			case msg := <-a.finalProof:
+				lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
+				if err != nil {
+					log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
+					continue
+				}
+				if msg.recursiveProof.BatchNumberFinal <= lastVerifiedEthBatchNum {
+					continue
+				}
+
+				lock.Lock()
+				if _, ok := monitoredProofHashTx[msg.recursiveProof.BatchNumberFinal]; ok {
+					lock.Unlock()
+					continue
+				}
+				monitoredProofHashTx[msg.recursiveProof.BatchNumberFinal] = true
+				finalProofMsgs = append(finalProofMsgs, msg)
+				sort.Sort(finalProofMsgs)
+				lock.Unlock()
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-a.ctx.Done():
 			return
-		case msg := <-a.finalProof:
-			lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
-			if err != nil {
-				log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
-				continue
-			}
-			if msg.recursiveProof.BatchNumberFinal <= lastVerifiedEthBatchNum {
-				continue
-			}
+			/*
+				case msg := <-a.finalProof:
+					lastVerifiedEthBatchNum, err := a.Ethman.GetLatestVerifiedBatchNum()
+					if err != nil {
+						log.Warnf("Failed to get last eth batch on resendProoHash, err: %v", err)
+						continue
+					}
+					if msg.recursiveProof.BatchNumberFinal <= lastVerifiedEthBatchNum {
+						continue
+					}
 
-			lock.Lock()
-			if _, ok := monitoredProofHashTx[msg.recursiveProof.BatchNumberFinal]; ok {
-				lock.Unlock()
-				continue
-			}
-			monitoredProofHashTx[msg.recursiveProof.BatchNumberFinal] = true
-			finalProofMsgs = append(finalProofMsgs, msg)
-			sort.Sort(finalProofMsgs)
-			lock.Unlock()
-
+					lock.Lock()
+					if _, ok := monitoredProofHashTx[msg.recursiveProof.BatchNumberFinal]; ok {
+						lock.Unlock()
+						continue
+					}
+					monitoredProofHashTx[msg.recursiveProof.BatchNumberFinal] = true
+					finalProofMsgs = append(finalProofMsgs, msg)
+					sort.Sort(finalProofMsgs)
+					lock.Unlock()
+			*/
 		case <-tick.C:
 			if len(a.txs) > 0 {
 				continue
