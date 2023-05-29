@@ -209,11 +209,13 @@ func (a *Aggregator) sendGenarateFinalProof() {
 		a.monitoredProofHashTxLock.Lock()
 		if _, ok := a.monitoredProofHashTx[monitoredTxID]; ok {
 			a.monitoredProofHashTxLock.Unlock()
+			lastVerifiedBatchNum = sequence.ToBatchNumber
 			continue
 		}
 		a.monitoredProofHashTxLock.Unlock()
 		stateFinalProof, errFinalProof := a.State.GetFinalProofByMonitoredId(a.ctx, monitoredTxID, nil)
 		if errFinalProof != nil {
+			lastVerifiedBatchNum = sequence.ToBatchNumber
 			continue
 		}
 
@@ -227,7 +229,7 @@ func (a *Aggregator) sendGenarateFinalProof() {
 		msg.finalProof = &pb.FinalProof{Proof: stateFinalProof.FinalProof}
 
 		a.finalProof <- msg
-		lastVerifiedBatchNum++
+		lastVerifiedBatchNum = sequence.ToBatchNumber
 	}
 }
 
