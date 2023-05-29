@@ -630,7 +630,7 @@ func (c *Client) ProcessPendingMonitoredTxs(ctx context.Context, owner string, r
 	statusesFilter := []MonitoredTxStatus{
 		MonitoredTxStatusCreated,
 		MonitoredTxStatusSent,
-		// MonitoredTxStatusFailed,
+		MonitoredTxStatusFailed,
 		MonitoredTxStatusConfirmed,
 		MonitoredTxStatusReorged,
 	}
