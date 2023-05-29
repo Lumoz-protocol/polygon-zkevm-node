@@ -76,11 +76,11 @@ func (c *Client) Add(ctx context.Context, owner, id string, from common.Address,
 	// get gas
 	gas, err := c.etherman.EstimateGas(ctx, from, to, value, data)
 	if err != nil {
-		latestBlockNumber, err := c.etherman.GetLatestBlockNumber(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to estimate gas. err: %v", err)
+		latestBlockNumber, errBlockNumber := c.etherman.GetLatestBlockNumber(ctx)
+		if errBlockNumber != nil {
+			return fmt.Errorf("failed to estimate gas. err: %v", errBlockNumber)
 		}
-		err = fmt.Errorf("failed to estimate gas: %v, data: %v, latestBlockNumber = %d", err, common.Bytes2Hex(data), latestBlockNumber)
+		err := fmt.Errorf("failed to estimate gas: %v, data: %v, latestBlockNumber: %d", err, common.Bytes2Hex(data), latestBlockNumber)
 		log.Error(err.Error())
 		if c.cfg.ForcedGas > 0 {
 			gas = c.cfg.ForcedGas
