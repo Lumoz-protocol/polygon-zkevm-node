@@ -206,7 +206,7 @@ func (a *Aggregator) sendGenarateFinalProof() {
 
 		sequence, err := a.State.GetSequence(a.ctx, lastVerifiedBatchNum+1, nil)
 		if err != nil && err != state.ErrStateNotSynchronized {
-			log.Errorf("failed to get sequence. err: %v", err)
+			log.Debugf("failed to get sequence. err: %v", err)
 			return
 		}
 
@@ -962,6 +962,10 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 
 	if proof == nil {
 		sequence, err := a.State.GetSequence(a.ctx, lastVerifiedBatchNum+1, nil)
+		if errors.Is(err, state.ErrStateNotSynchronized) {
+			log.Debugf("%s. batchNum: %d", state.ErrStateNotSynchronized, lastVerifiedBatchNum+1)
+			return false, nil
+		}
 		if err != nil {
 			log.Warnf("failed to get sequence. err: %v", err)
 			return false, err
