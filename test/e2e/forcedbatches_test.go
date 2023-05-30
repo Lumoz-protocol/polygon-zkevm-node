@@ -127,10 +127,6 @@ func sendForcedBatch(t *testing.T, opsman *operations.Manager) (*state.Batch, er
 
 	log.Debug("currentBlock.Time(): ", currentBlock.Time())
 
-	// Get tip
-	tip, err := zkEvm.BatchFee(&bind.CallOpts{Pending: false})
-	require.NoError(t, err)
-
 	managerAddress, err := zkEvm.GlobalExitRootManager(&bind.CallOpts{Pending: false})
 	require.NoError(t, err)
 
@@ -140,17 +136,6 @@ func sendForcedBatch(t *testing.T, opsman *operations.Manager) (*state.Batch, er
 	rootInContract, err := manager.GetLastGlobalExitRoot(&bind.CallOpts{Pending: false})
 	require.NoError(t, err)
 	rootInContractHash := common.BytesToHash(rootInContract[:])
-
-	// Send forceBatch
-	tx, err := zkEvm.ForceBatch(auth, []byte{}, tip)
-	require.NoError(t, err)
-
-	log.Info("TxHash: ", tx.Hash())
-
-	time.Sleep(1 * time.Second)
-
-	err = operations.WaitTxToBeMined(ctx, ethClient, tx, operations.DefaultTimeoutTxToBeMined)
-	require.NoError(t, err)
 
 	query := ethereum.FilterQuery{
 		FromBlock: currentBlock.Number(),

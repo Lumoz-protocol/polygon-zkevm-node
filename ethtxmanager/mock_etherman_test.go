@@ -273,6 +273,9 @@ func (_m *ethermanMock) WaitTxToBeMined(ctx context.Context, tx *types.Transacti
 
 	return r0, r1
 }
+func (_m *ethermanMock) GetLatestBlockNumber(ctx context.Context) (uint64, error){
+	return 0, nil
+}
 
 type mockConstructorTestingTnewEthermanMock interface {
 	mock.TestingT

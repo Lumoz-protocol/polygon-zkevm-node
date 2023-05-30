@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"time"
 
 	"github.com/0xPolygonHermez/zkevm-node/etherman/smartcontracts/polygonzkevm"
 	"github.com/0xPolygonHermez/zkevm-node/log"
@@ -103,28 +102,6 @@ func sendForcedBatches(cliCtx *cli.Context) error {
 		return err
 	}
 	log.Debug("currentBlock.Time(): ", currentBlock.Time())
-
-	// Get tip
-	tip, err := poe.BatchFee(&bind.CallOpts{Pending: false})
-	if err != nil {
-		log.Error("error getting tip. Error: ", err)
-		return err
-	}
-	// Send forceBatch
-	tx, err := poe.ForceBatch(auth, []byte{}, tip)
-	if err != nil {
-		log.Error("error sending forceBatch. Error: ", err)
-		return err
-	}
-
-	log.Info("TxHash: ", tx.Hash())
-
-	time.Sleep(1 * time.Second)
-
-	err = operations.WaitTxToBeMined(ctx, ethClient, tx, miningTimeout*time.Second)
-	if err != nil {
-		return err
-	}
 
 	query := ethereum.FilterQuery{
 		FromBlock: currentBlock.Number(),
