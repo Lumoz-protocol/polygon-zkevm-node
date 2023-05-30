@@ -441,6 +441,24 @@ func (a *Aggregator) Channel(stream pb.AggregatorService_ChannelServer) error {
 				continue
 			}
 
+			lastVerifiedBatch, err := a.State.GetLastVerifiedBatch(ctx, nil)
+			if err != nil && !errors.Is(err, state.ErrNotFound) {
+				log.Errorf("failed to get last verified batch, %w", err)
+				continue
+			}
+			if lastVerifiedBatch != nil {
+				//
+				batchNumberFinal := lastVerifiedBatch.BatchNumber + 1
+				b, err := a.State.IsGenerateProofHash(a.ctx, a.cfg.SenderAddress, batchNumberFinal, nil)
+				if err != nil {
+					log.Errorf("failed to read db, %w", err)
+					continue
+				}
+				if b {
+					a.monitorSendProof(batchNumberFinal)
+				}
+			}
+
 			_, err = a.tryBuildFinalProof(ctx, prover, nil)
 			if err != nil {
 				log.Errorf("Error checking proofs to verify: %v", err)

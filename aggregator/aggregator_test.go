@@ -21,10 +21,14 @@ import (
 	"github.com/0xPolygonHermez/zkevm-node/ethtxmanager"
 	"github.com/0xPolygonHermez/zkevm-node/state"
 	"github.com/0xPolygonHermez/zkevm-node/test/testutils"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	solsha3 "github.com/miguelmota/go-solidity-sha3"
 )
 
 type mox struct {
@@ -74,7 +78,6 @@ func TestId(t *testing.T) {
 
 	fmt.Println(idSlice)
 	fmt.Println(proofBatchNumber, proofBatchNumberFinal)
-
 	t.Fatal(1)
 }
 

@@ -2443,9 +2443,25 @@ func (p *PostgresStorage) GetFinalProofByMonitoredId(ctx context.Context, monito
 
 func (p *PostgresStorage) AddProofHash(ctx context.Context, proofHash *ProofHash, dbTx pgx.Tx) error {
 	e := p.getExecQuerier(dbTx)
-	const addProofHashSQL = "INSERT INTO state.proof_hash (block_num, sender, init_num_batch, final_new_batch, proof_hash) VALUES ($1, $2, $3, $4, $5)"
-	_, err := e.Exec(ctx, addProofHashSQL, proofHash.BlockNumber, proofHash.Sender.String(), proofHash.InitNumBatch, proofHash.FinalNewBatch, proofHash.ProofHash.String())
-	return err
+	//final_new_batch sender proof_hash 查询在否，有更新，没有插入
+	const queryProofHashSQL = "select count(1) from state.proof_hash where sender = $1 and final_new_batch = $2 and proof_hash =$3"
+
+	var num uint64
+	err := e.QueryRow(ctx, queryProofHashSQL, proofHash.Sender.String(), proofHash.FinalNewBatch, proofHash.ProofHash.String()).Scan(&num)
+	if err != nil {
+		return err
+	}
+
+	if num == 0 {
+		const addProofHashSQL = "INSERT INTO state.proof_hash (block_num, sender, init_num_batch, final_new_batch, proof_hash) VALUES ($1, $2, $3, $4, $5)"
+		_, err := e.Exec(ctx, addProofHashSQL, proofHash.BlockNumber, proofHash.Sender.String(), proofHash.InitNumBatch, proofHash.FinalNewBatch, proofHash.ProofHash.String())
+		return err
+	} else {
+
+		const addProofHashSQL = "update state.proof_hash set block_num = $1 where sender = $2 and final_new_batch = $3 and proof_hash = $4)"
+		_, err := e.Exec(ctx, addProofHashSQL, proofHash.BlockNumber, proofHash.Sender.String(), proofHash.FinalNewBatch, proofHash.ProofHash.String())
+		return err
+	}
 }
 
 func (p *PostgresStorage) AddProverProof(ctx context.Context, proverProof *ProverProof, dbTx pgx.Tx) error {
@@ -2484,6 +2500,18 @@ func (p *PostgresStorage) GetProofHashBySender(ctx context.Context, sender strin
 	}
 
 	return proofHash, nil
+}
+
+func (p *PostgresStorage) IsGenerateProofHash(ctx context.Context, sender string, batchNumber uint64, dbTx pgx.Tx) (bool, error) {
+	const isGenerateProofHashSQL = `SELECT count(1) FROM state.proof_hash WHERE final_new_batch = $1 and lower(sender) = lower($2)`
+	e := p.getExecQuerier(dbTx)
+	var num uint64
+	err := e.QueryRow(ctx, isGenerateProofHashSQL, batchNumber, sender).Scan(&num)
+	if err != nil || num == 0 {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (p *PostgresStorage) GetProverProofByHash(ctx context.Context, hash string, batchNumberFinal uint64, dbTx pgx.Tx) (*ProverProof, error) {

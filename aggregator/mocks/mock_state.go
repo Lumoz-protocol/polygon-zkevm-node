@@ -400,6 +400,10 @@ func (_m *StateMock) UpdateGeneratedProof(ctx context.Context, proof *state.Proo
 
 	return r0
 }
+func (_m *StateMock) IsGenerateProofHash(ctx context.Context, sender string, batchNumber uint64, dbTx pgx.Tx) (bool, error){
+
+	return true,nil
+}
 
 
 func (p *StateMock) AddFinalProof(ctx context.Context, finalProof *state.FinalProof, dbTx pgx.Tx) error {

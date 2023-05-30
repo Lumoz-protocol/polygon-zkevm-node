@@ -79,4 +79,5 @@ type stateInterface interface {
 	GetSequence(ctx context.Context, lastVerifiedBatchNumber uint64, dbTx pgx.Tx) (state.Sequence, error)
 	GetTxBlockNum(ctx context.Context, id string, dbTx pgx.Tx) (uint64, string, error)
 	HaveProverProofByBatchNum(ctx context.Context, batchNumberFinal uint64, dbTx pgx.Tx) (bool, error)
+	IsGenerateProofHash(ctx context.Context, sender string, batchNumber uint64, dbTx pgx.Tx) (bool, error)
 }
